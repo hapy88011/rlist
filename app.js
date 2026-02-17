@@ -291,29 +291,41 @@ async function searchHotels(page = 1) {
 function parseHotels(hotels) {
     // デバッグ: 最初のホテルの構造を確認
     if (hotels.length > 0) {
-        console.log('First hotel structure:', JSON.stringify(hotels[0], null, 2));
+        console.log('First hotel raw:', hotels[0]);
+        console.log('First hotel type:', typeof hotels[0]);
+        console.log('First hotel isArray:', Array.isArray(hotels[0]));
+        console.log('First hotel keys:', Object.keys(hotels[0]));
+        console.log('First hotel JSON:', JSON.stringify(hotels[0], null, 2));
     }
 
     return hotels.map((hotelData) => {
         let basic = {};
         let rating = {};
 
-        // formatVersion=1: hotelData.hotel が配列で中にオブジェクトが入る
-        if (hotelData.hotel && Array.isArray(hotelData.hotel)) {
+        // パターン1: formatVersion=2 — hotelData 自体が配列
+        // 例: [{hotelBasicInfo: {...}}, {hotelRatingInfo: {...}}]
+        if (Array.isArray(hotelData)) {
+            const hotelBasic = hotelData.find(item => item.hotelBasicInfo);
+            const hotelRating = hotelData.find(item => item.hotelRatingInfo);
+            basic = hotelBasic ? hotelBasic.hotelBasicInfo : {};
+            rating = hotelRating ? hotelRating.hotelRatingInfo : {};
+        }
+        // パターン2: formatVersion=1 — hotelData.hotel が配列
+        // 例: {hotel: [{hotelBasicInfo: {...}}, {hotelRatingInfo: {...}}]}
+        else if (hotelData.hotel && Array.isArray(hotelData.hotel)) {
             const hotelBasic = hotelData.hotel.find(item => item.hotelBasicInfo);
             const hotelRating = hotelData.hotel.find(item => item.hotelRatingInfo);
             basic = hotelBasic ? hotelBasic.hotelBasicInfo : {};
             rating = hotelRating ? hotelRating.hotelRatingInfo : {};
         }
-        // formatVersion=2: hotelData に直接 hotelBasicInfo がある
+        // パターン3: hotelData に直接 hotelBasicInfo がある
         else if (hotelData.hotelBasicInfo) {
             basic = hotelData.hotelBasicInfo;
             rating = hotelData.hotelRatingInfo || {};
         }
-        // formatVersion=2 のさらにフラット: hotelData に直接プロパティがある
+        // パターン4: 完全にフラット
         else if (hotelData.hotelName) {
             basic = hotelData;
-            rating = {};
         }
 
         return {
