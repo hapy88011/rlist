@@ -198,7 +198,8 @@ async function searchHotels() {
     const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
     const accessKey = elements.accessKey.value.trim() || localStorage.getItem(STORAGE_KEY_ACCESS);
     const keyword = elements.keyword.value.trim();
-    const totalWanted = parseInt(elements.hits.value);
+    const hitsValue = elements.hits.value;
+    const totalWanted = hitsValue === 'all' ? 3000 : parseInt(hitsValue);
 
     // バリデーション
     if (!appId || !accessKey) {
