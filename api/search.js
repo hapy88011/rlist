@@ -63,8 +63,6 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
-        // デバッグ用: APIバージョンとURLをレスポンスに含める
-        data._debug = { apiUrl: apiUrl.replace(/applicationId=[^&]+/, 'applicationId=***').replace(/accessKey=[^&]+/, 'accessKey=***'), version: 'v3-keyword-only' };
         return res.status(200).json(data);
 
     } catch (error) {
