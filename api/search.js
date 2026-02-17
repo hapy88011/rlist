@@ -25,8 +25,6 @@ export default async function handler(req, res) {
 
     try {
         // 楽天APIにリクエスト
-        // applicationId → URLパラメータ
-        // accessKey → URLパラメータ AND Bearer認証ヘッダー（両方送る）
         const params = new URLSearchParams({
             applicationId: applicationId,
             accessKey: accessKey,
@@ -42,12 +40,12 @@ export default async function handler(req, res) {
         const response = await fetch(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${accessKey}`,
+                'Referer': 'https://rlist-seven.vercel.app/',
             },
         });
 
         const data = await response.json();
 
-        // レスポンスをそのまま返す
         return res.status(200).json(data);
 
     } catch (error) {
