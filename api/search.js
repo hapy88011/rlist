@@ -1,5 +1,5 @@
 // Vercel Serverless Function: 楽天トラベルAPI プロキシ
-// ブラウザからのCORS制限を回避するため、サーバー経由でAPIを呼び出す
+// サーバー経由でAPIを呼び出すことでCORS制限を回避
 
 export default async function handler(req, res) {
     // CORS ヘッダー
@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 楽天APIにリクエスト
+        // 楽天APIにリクエスト（openapi.rakuten.co.jp + Bearer認証）
         const params = new URLSearchParams({
             applicationId: applicationId,
             keyword: keyword,
@@ -32,9 +32,13 @@ export default async function handler(req, res) {
             format: 'json',
         });
 
-        const apiUrl = `https://app.rakuten.co.jp/services/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
 
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+            headers: {
+                'Authorization': `Bearer ${applicationId}`,
+            },
+        });
         const data = await response.json();
 
         // エラーレスポンスもそのまま返す

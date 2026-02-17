@@ -129,7 +129,7 @@ function loadApiKey() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
         elements.apiKey.value = saved;
-        showApiStatus('✅ アプリケーションIDが保存されています', 'success');
+        showApiStatus('✅ アクセスキーが保存されています', 'success');
         // API設定を折りたたむ
         elements.apiBody.classList.add('collapsed');
         elements.toggleApiBtn.textContent = '▼';
@@ -140,7 +140,7 @@ function loadApiKey() {
 function saveApiKey() {
     const key = elements.apiKey.value.trim();
     if (!key) {
-        showApiStatus('❌ アプリケーションIDを入力してください', 'error');
+        showApiStatus('❌ アクセスキーを入力してください', 'error');
         return;
     }
     localStorage.setItem(STORAGE_KEY, key);
@@ -194,7 +194,7 @@ async function searchHotels(page = 1) {
 
     // バリデーション
     if (!apiKey) {
-        showError('アプリケーションIDを設定してください。上の「API設定」セクションから入力してください。');
+        showError('アクセスキーを設定してください。上の「API設定」セクションから入力してください。');
         return;
     }
     if (!keyword) {
@@ -468,7 +468,7 @@ function escapeHtml(text) {
 function getErrorMessage(errorData) {
     const desc = errorData.error_description || errorData.error || '';
     const errorMap = {
-        'specify valid applicationId': 'アプリケーションIDが正しくありません。設定を確認してください。',
+        'specify valid applicationId': 'アクセスキーが正しくありません。設定を確認してください。',
         'keyword parameter is not valid': 'キーワードが不正です。2文字以上で入力してください。',
         'not found': '該当するホテルが見つかりませんでした。',
         'too_many_requests': 'リクエスト回数の上限に達しました。少し時間を置いてから再試行してください。',
