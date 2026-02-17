@@ -113,14 +113,14 @@ function init() {
     elements.saveApiKey.addEventListener('click', saveApiKey);
     elements.toggleKeyVisibility.addEventListener('click', toggleKeyVisibility);
     elements.toggleApiBtn.addEventListener('click', toggleApiSection);
-    elements.searchBtn.addEventListener('click', () => searchHotels(1));
+    elements.searchBtn.addEventListener('click', () => searchHotels());
     elements.csvBtn.addEventListener('click', downloadCSV);
     elements.prevPage.addEventListener('click', () => searchHotels(currentPage - 1));
     elements.nextPage.addEventListener('click', () => searchHotels(currentPage + 1));
 
     // Enterキーで検索
     elements.keyword.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') searchHotels(1);
+        if (e.key === 'Enter') searchHotels();
     });
 }
 
@@ -194,11 +194,11 @@ function showApiStatus(message, type) {
 // ===== ホテル検索 =====
 
 /** 楽天トラベルAPIでホテルを検索 */
-async function searchHotels(page = 1) {
+async function searchHotels() {
     const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
     const accessKey = elements.accessKey.value.trim() || localStorage.getItem(STORAGE_KEY_ACCESS);
     const keyword = elements.keyword.value.trim();
-    const hits = elements.hits.value;
+    const totalWanted = parseInt(elements.hits.value);
 
     // バリデーション
     if (!appId || !accessKey) {
@@ -216,68 +216,88 @@ async function searchHotels(page = 1) {
 
     // 状態を更新
     currentKeyword = keyword;
-    currentHits = parseInt(hits);
-    currentPage = page;
+    currentHits = totalWanted;
+    currentPage = 1;
 
     // UI更新: 検索中
     showLoading(true);
     hideError();
     elements.resultsSection.style.display = 'none';
 
-    // レート制限: 前回リクエストから1.1秒未満なら待機
-    const now = Date.now();
-    const elapsed = now - lastRequestTime;
-    if (elapsed < RATE_LIMIT_MS) {
-        const waitTime = RATE_LIMIT_MS - elapsed;
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-    lastRequestTime = Date.now();
-
     try {
-        // サーバープロキシ経由でAPIリクエスト（Refererヘッダーを転送）
-        const params = new URLSearchParams({
-            applicationId: appId,
-            accessKey: accessKey,
-            keyword: keyword,
-            hits: hits,
-            page: page,
-        });
+        // APIは1回最大30件なので、複数ページを取得
+        const PER_PAGE = 30;
+        const pagesNeeded = Math.ceil(totalWanted / PER_PAGE);
+        let allHotels = [];
+        let totalAvailable = 0;
 
-        const response = await fetch(`/api/search?${params.toString()}`);
-        const data = await response.json();
+        for (let page = 1; page <= pagesNeeded; page++) {
+            // レート制限: 前回リクエストから1.1秒未満なら待機
+            const now = Date.now();
+            const elapsed = now - lastRequestTime;
+            if (elapsed < RATE_LIMIT_MS) {
+                await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS - elapsed));
+            }
+            lastRequestTime = Date.now();
 
-        // デバッグ: レスポンス内容をコンソールに出力
-        console.log('API Response:', JSON.stringify(data, null, 2));
+            // 進捗表示
+            if (pagesNeeded > 1) {
+                elements.loading.querySelector('p').textContent =
+                    `検索中... (${page}/${pagesNeeded}ページ, ${allHotels.length}件取得済み)`;
+            }
 
-        // エラーチェック (error: 旧形式, errors: 新形式)
-        if (data.error) {
-            throw new Error(getErrorMessage(data));
+            const params = new URLSearchParams({
+                applicationId: appId,
+                accessKey: accessKey,
+                keyword: keyword,
+                hits: PER_PAGE,
+                page: page,
+            });
+
+            const response = await fetch(`/api/search?${params.toString()}`);
+            const data = await response.json();
+
+            // エラーチェック
+            if (data.error) {
+                throw new Error(getErrorMessage(data));
+            }
+            if (data.errors) {
+                throw new Error(data.errors.errorMessage || JSON.stringify(data.errors));
+            }
+
+            // データがない場合は終了
+            if (!data.hotels || data.hotels.length === 0) {
+                if (page === 1) {
+                    showError('該当するホテルが見つかりませんでした。');
+                    showLoading(false);
+                    return;
+                }
+                break; // 2ページ目以降でデータなし → 取得完了
+            }
+
+            // ページ情報を取得
+            if (page === 1) {
+                totalAvailable = data.pagingInfo ? data.pagingInfo.recordCount : data.hotels.length;
+            }
+
+            // ホテルデータを解析して追加
+            const parsed = parseHotels(data.hotels);
+            allHotels = allHotels.concat(parsed);
+
+            // 必要数に達したら終了
+            if (allHotels.length >= totalWanted) {
+                allHotels = allHotels.slice(0, totalWanted);
+                break;
+            }
+
+            // これ以上ページがない場合は終了
+            const maxPages = data.pagingInfo ? data.pagingInfo.pageCount : 1;
+            if (page >= maxPages) break;
         }
-        if (data.errors) {
-            throw new Error(data.errors.errorMessage || JSON.stringify(data.errors));
-        }
 
-        // 結果の解析
-        if (!data.hotels || data.hotels.length === 0) {
-            // デバッグ情報も表示
-            const debugInfo = data._debug ? ` (ステータス: ${data._debug.status}, キー: ${data._debug.keys.join(', ')})` : '';
-            showError(`該当するホテルが見つかりませんでした。${debugInfo}`);
-            showLoading(false);
-            return;
-        }
-
-        // ページ情報の計算
-        const totalCount = data.pagingInfo ? data.pagingInfo.recordCount : data.hotels.length;
-        totalPages = data.pagingInfo ? data.pagingInfo.pageCount : 1;
-        currentPage = data.pagingInfo ? data.pagingInfo.page : 1;
-
-        // 検索結果を解析して保存
-        currentResults = parseHotels(data.hotels);
-
-        // 画面に表示
-        renderResults(currentResults, totalCount);
-        updatePagination();
-
+        // 検索結果を保存して表示
+        currentResults = allHotels;
+        renderResults(currentResults, totalAvailable);
         showLoading(false);
 
     } catch (error) {
