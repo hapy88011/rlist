@@ -207,13 +207,9 @@ function showApiStatus(message, type) {
 
 /** エリアデータを読み込む（静的データを使用） */
 function loadAreaData() {
-    console.log('[DEBUG] loadAreaData called');
-    console.log('[DEBUG] typeof AREA_DATA:', typeof AREA_DATA);
-    console.log('[DEBUG] AREA_DATA length:', typeof AREA_DATA !== 'undefined' ? AREA_DATA.length : 'undefined');
     // area-data.js で定義された AREA_DATA を使用
     if (typeof AREA_DATA !== 'undefined' && AREA_DATA.length > 0) {
         areaData = AREA_DATA;
-        console.log('[DEBUG] areaData set, calling populateMiddleClassDropdown');
         populateMiddleClassDropdown();
     } else {
         console.error('AREA_DATA is not defined. area-data.js が正しく読み込まれていません。');
@@ -222,9 +218,6 @@ function loadAreaData() {
 
 /** 都道府県ドロップダウンを生成 */
 function populateMiddleClassDropdown() {
-    console.log('[DEBUG] populateMiddleClassDropdown called');
-    console.log('[DEBUG] areaData length:', areaData ? areaData.length : 'null');
-    console.log('[DEBUG] elements.middleClass:', elements.middleClass);
     if (!areaData || areaData.length === 0) return;
 
     elements.middleClass.innerHTML = '<option value="">都道府県を選択</option>';
@@ -234,7 +227,6 @@ function populateMiddleClassDropdown() {
         option.textContent = middle.name;
         elements.middleClass.appendChild(option);
     }
-    console.log('[DEBUG] middleClass options count:', elements.middleClass.options.length);
 }
 
 /** 都道府県が変更されたとき、小エリアを更新 */
