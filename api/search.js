@@ -11,11 +11,11 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { keyword, hits, page, applicationId } = req.query;
+    const { keyword, hits, page, applicationId, accessKey } = req.query;
 
     // バリデーション
-    if (!applicationId) {
-        return res.status(400).json({ error: 'applicationId is required' });
+    if (!applicationId || !accessKey) {
+        return res.status(400).json({ error: 'applicationId and accessKey are required' });
     }
     if (!keyword) {
         return res.status(400).json({ error: 'keyword is required' });
@@ -23,7 +23,10 @@ export default async function handler(req, res) {
 
     try {
         // 楽天APIにリクエスト
+        // applicationId → URLパラメータ
+        // accessKey → Bearer認証ヘッダー
         const params = new URLSearchParams({
+            applicationId: applicationId,
             keyword: keyword,
             hits: hits || '30',
             page: page || '1',
@@ -35,17 +38,16 @@ export default async function handler(req, res) {
 
         const response = await fetch(apiUrl, {
             headers: {
-                'Authorization': `Bearer ${applicationId}`,
+                'Authorization': `Bearer ${accessKey}`,
             },
         });
 
         const data = await response.json();
 
-        // デバッグ: レスポンス情報をラップして返す
+        // デバッグ情報を付加して返す
         return res.status(200).json({
             _debug: {
                 status: response.status,
-                url: apiUrl,
                 hasHotels: !!(data && data.hotels),
                 keys: data ? Object.keys(data) : [],
             },

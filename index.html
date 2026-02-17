@@ -60,17 +60,22 @@
                 </div>
                 <div class="card-body" id="apiBody">
                     <p class="help-text">
-                        楽天ウェブサービスの<strong>アクセスキー</strong>を入力してください。<br>（アプリ一覧 →
-                        👁アイコンで表示できます）<br>一度保存すれば、次回以降は自動で読み込まれます。
+                        楽天ウェブサービスの<strong>アプリケーションID</strong>と<strong>アクセスキー</strong>の両方を入力してください。<br>（<a
+                            href="https://webservice.rakuten.co.jp/app/list"
+                            target="_blank">アプリ一覧ページ</a>で確認できます）<br>一度保存すれば、次回以降は自動で読み込まれます。
                     </p>
                     <div class="input-group">
-                        <label for="apiKey">アクセスキー</label>
+                        <label for="appId">① アプリケーションID</label>
+                        <input type="text" id="appId" placeholder="例: 9f896b36-d43d-4dc2-..." autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="accessKey">② アクセスキー（👁アイコンで表示）</label>
                         <div class="input-with-btn">
-                            <input type="password" id="apiKey" placeholder="アクセスキーを貼り付けてください" autocomplete="off">
+                            <input type="password" id="accessKey" placeholder="アクセスキーを貼り付けてください" autocomplete="off">
                             <button class="btn btn-small" id="toggleKeyVisibility" title="表示/非表示">👁</button>
-                            <button class="btn btn-primary btn-small" id="saveApiKey">保存</button>
                         </div>
                     </div>
+                    <button class="btn btn-primary" id="saveApiKey" style="width: 100%; margin-top: 0.5rem;">保存</button>
                     <div class="api-status" id="apiStatus"></div>
                 </div>
             </section>

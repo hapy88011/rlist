@@ -5,7 +5,8 @@
 
 // ===== 定数 =====
 const API_BASE_URL = 'https://app.rakuten.co.jp/services/api/Travel/KeywordHotelSearch/20170426';
-const STORAGE_KEY = 'rlist_api_key';
+const STORAGE_KEY_APPID = 'rlist_app_id';
+const STORAGE_KEY_ACCESS = 'rlist_access_key';
 const RATE_LIMIT_MS = 1100; // API制限: 1秒に1回以下 → 1.1秒間隔を確保
 
 // ===== 状態管理 =====
@@ -19,7 +20,8 @@ let lastRequestTime = 0;   // 前回のAPIリクエスト時刻（レート制�
 // ===== DOM要素の取得 =====
 const elements = {
     // API設定
-    apiKey: document.getElementById('apiKey'),
+    appId: document.getElementById('appId'),
+    accessKey: document.getElementById('accessKey'),
     saveApiKey: document.getElementById('saveApiKey'),
     toggleKeyVisibility: document.getElementById('toggleKeyVisibility'),
     toggleApiBtn: document.getElementById('toggleApiBtn'),
@@ -126,10 +128,13 @@ function init() {
 
 /** 保存済みのAPIキーを読み込む */
 function loadApiKey() {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved) {
-        elements.apiKey.value = saved;
-        showApiStatus('✅ アクセスキーが保存されています', 'success');
+    const savedAppId = localStorage.getItem(STORAGE_KEY_APPID);
+    const savedAccess = localStorage.getItem(STORAGE_KEY_ACCESS);
+    if (savedAppId) elements.appId.value = savedAppId;
+    if (savedAccess) elements.accessKey.value = savedAccess;
+
+    if (savedAppId && savedAccess) {
+        showApiStatus('✅ API設定が保存されています', 'success');
         // API設定を折りたたむ
         elements.apiBody.classList.add('collapsed');
         elements.toggleApiBtn.textContent = '▼';
@@ -138,12 +143,14 @@ function loadApiKey() {
 
 /** APIキーを保存する */
 function saveApiKey() {
-    const key = elements.apiKey.value.trim();
-    if (!key) {
-        showApiStatus('❌ アクセスキーを入力してください', 'error');
+    const appId = elements.appId.value.trim();
+    const accessKey = elements.accessKey.value.trim();
+    if (!appId || !accessKey) {
+        showApiStatus('❌ アプリケーションIDとアクセスキーの両方を入力してください', 'error');
         return;
     }
-    localStorage.setItem(STORAGE_KEY, key);
+    localStorage.setItem(STORAGE_KEY_APPID, appId);
+    localStorage.setItem(STORAGE_KEY_ACCESS, accessKey);
     showApiStatus('✅ 保存しました！', 'success');
 
     // 少し遅れて折りたたむ
@@ -153,9 +160,9 @@ function saveApiKey() {
     }, 1000);
 }
 
-/** APIキーの表示/非表示を切り替え */
+/** アクセスキーの表示/非表示を切り替え */
 function toggleKeyVisibility() {
-    const input = elements.apiKey;
+    const input = elements.accessKey;
     if (input.type === 'password') {
         input.type = 'text';
         elements.toggleKeyVisibility.textContent = '🔒';
@@ -188,13 +195,14 @@ function showApiStatus(message, type) {
 
 /** 楽天トラベルAPIでホテルを検索 */
 async function searchHotels(page = 1) {
-    const apiKey = elements.apiKey.value.trim() || localStorage.getItem(STORAGE_KEY);
+    const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
+    const accessKey = elements.accessKey.value.trim() || localStorage.getItem(STORAGE_KEY_ACCESS);
     const keyword = elements.keyword.value.trim();
     const hits = elements.hits.value;
 
     // バリデーション
-    if (!apiKey) {
-        showError('アクセスキーを設定してください。上の「API設定」セクションから入力してください。');
+    if (!appId || !accessKey) {
+        showError('API設定が必要です。上の「API設定」セクションからアプリケーションIDとアクセスキーを入力してください。');
         return;
     }
     if (!keyword) {
@@ -228,7 +236,8 @@ async function searchHotels(page = 1) {
     try {
         // サーバー経由でAPIリクエスト（CORS回避のため）
         const params = new URLSearchParams({
-            applicationId: apiKey,
+            applicationId: appId,
+            accessKey: accessKey,
             keyword: keyword,
             hits: hits,
             page: page,
