@@ -226,15 +226,16 @@ async function searchHotels(page = 1) {
     lastRequestTime = Date.now();
 
     try {
-        // JSONP方式でAPIリクエスト（CORS回避のため）
-        const data = await callApiJsonp({
+        // サーバー経由でAPIリクエスト（CORS回避のため）
+        const params = new URLSearchParams({
             applicationId: apiKey,
             keyword: keyword,
             hits: hits,
             page: page,
-            formatVersion: '2',
-            format: 'json',
         });
+
+        const response = await fetch(`/api/search?${params.toString()}`);
+        const data = await response.json();
 
         // エラーチェック
         if (data.error) {
