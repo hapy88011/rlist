@@ -234,16 +234,17 @@ async function searchHotels(page = 1) {
     lastRequestTime = Date.now();
 
     try {
-        // JSONP方式でAPIリクエスト（ブラウザから直接、Refererが自然に送られる）
-        const data = await callApiJsonp({
+        // サーバープロキシ経由でAPIリクエスト（Refererヘッダーを転送）
+        const params = new URLSearchParams({
             applicationId: appId,
             accessKey: accessKey,
             keyword: keyword,
             hits: hits,
             page: page,
-            formatVersion: '2',
-            format: 'json',
         });
+
+        const response = await fetch(`/api/search?${params.toString()}`);
+        const data = await response.json();
 
         // デバッグ: レスポンス内容をコンソールに出力
         console.log('API Response:', JSON.stringify(data, null, 2));

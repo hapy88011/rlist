@@ -1,21 +1,18 @@
 // Vercel Serverless Function: 楽天トラベルAPI プロキシ
-// サーバー経由でAPIを呼び出すことでCORS制限を回避
+// ブラウザのRefererヘッダーをそのまま転送してCORS制限を回避
 
 export default async function handler(req, res) {
     // CORS ヘッダー
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET');
-    // キャッシュ無効化
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
-    // GETのみ許可
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
     const { keyword, hits, page, applicationId, accessKey } = req.query;
 
-    // バリデーション
     if (!applicationId || !accessKey) {
         return res.status(400).json({ error: 'applicationId and accessKey are required' });
     }
@@ -24,7 +21,6 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 楽天APIにリクエスト
         const params = new URLSearchParams({
             applicationId: applicationId,
             accessKey: accessKey,
@@ -37,15 +33,19 @@ export default async function handler(req, res) {
 
         const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
 
+        // ブラウザから送られてきたReferer/Originを取得して転送
+        const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
+
         const response = await fetch(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${accessKey}`,
-                'Referer': 'https://rlist-seven.vercel.app/',
+                'Referer': browserReferer,
+                'Origin': 'https://rlist-seven.vercel.app',
+                'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
             },
         });
 
         const data = await response.json();
-
         return res.status(200).json(data);
 
     } catch (error) {
