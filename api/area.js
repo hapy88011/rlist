@@ -19,43 +19,36 @@ export default async function handler(req, res) {
     }
 
     try {
-        // まず openapi.rakuten.co.jp で試行（KeywordHotelSearchと同じドメイン）
         const params = new URLSearchParams({
             applicationId: applicationId,
             formatVersion: '2',
             format: 'json',
         });
 
-        // accessKeyがあれば追加
+        // accessKeyがあればURLパラメータにも追加
         if (accessKey) {
             params.set('accessKey', accessKey);
         }
 
-        // openapi ドメインで試行
-        let apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20140210?${params.toString()}`;
+        // openapi ドメインを使用（KeywordHotelSearchと同じ）
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20140210?${params.toString()}`;
 
+        // ブラウザから送られてきたReferer/Originを取得して転送
         const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
 
-        let response = await fetch(apiUrl, {
-            headers: {
-                'Referer': browserReferer,
-                'Origin': 'https://rlist-seven.vercel.app',
-                'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
-            },
-        });
+        const headers = {
+            'Referer': browserReferer,
+            'Origin': 'https://rlist-seven.vercel.app',
+            'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
+        };
 
-        let data = await response.json();
-
-        // openapi がエラーの場合、app.rakuten.co.jp にフォールバック
-        if (data.error) {
-            const fallbackUrl = `https://app.rakuten.co.jp/services/api/Travel/GetAreaClass/20140210?${params.toString()}`;
-            const fallbackResponse = await fetch(fallbackUrl, {
-                headers: {
-                    'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
-                },
-            });
-            data = await fallbackResponse.json();
+        // accessKeyがあればBearerトークンとしても送信
+        if (accessKey) {
+            headers['Authorization'] = `Bearer ${accessKey}`;
         }
+
+        const response = await fetch(apiUrl, { headers });
+        const data = await response.json();
 
         return res.status(200).json(data);
 

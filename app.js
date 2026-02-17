@@ -237,7 +237,11 @@ async function loadAreaData() {
         const data = await response.json();
 
         if (data.error) {
-            console.error('GetAreaClass error:', data.error);
+            console.error('GetAreaClass error:', data.error, data.error_description);
+            return;
+        }
+        if (data.errors) {
+            console.error('GetAreaClass errors:', data.errors);
             return;
         }
 
