@@ -44,7 +44,9 @@ export default async function handler(req, res) {
             }
         }
 
-        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
+        // キーワードがある場合はKeywordHotelSearch、ない場合はSimpleHotelSearchを使用
+        const apiName = keyword ? 'KeywordHotelSearch' : 'SimpleHotelSearch';
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/${apiName}/20170426?${params.toString()}`;
 
         // ブラウザから送られてきたReferer/Originを取得して転送
         const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
