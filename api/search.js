@@ -23,7 +23,6 @@ export default async function handler(req, res) {
 
     try {
         // 楽天APIにリクエスト
-        // 新しいAPI (openapi.rakuten.co.jp) は accessKey パラメータを使う
         const params = new URLSearchParams({
             keyword: keyword,
             hits: hits || '30',
@@ -42,8 +41,16 @@ export default async function handler(req, res) {
 
         const data = await response.json();
 
-        // レスポンスをそのまま返す
-        return res.status(200).json(data);
+        // デバッグ: レスポンス情報をラップして返す
+        return res.status(200).json({
+            _debug: {
+                status: response.status,
+                url: apiUrl,
+                hasHotels: !!(data && data.hotels),
+                keys: data ? Object.keys(data) : [],
+            },
+            ...data,
+        });
 
     } catch (error) {
         console.error('API Proxy Error:', error);

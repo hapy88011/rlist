@@ -237,14 +237,22 @@ async function searchHotels(page = 1) {
         const response = await fetch(`/api/search?${params.toString()}`);
         const data = await response.json();
 
-        // エラーチェック
+        // デバッグ: レスポンス内容をコンソールに出力
+        console.log('API Response:', JSON.stringify(data, null, 2));
+
+        // エラーチェック (error: 旧形式, errors: 新形式)
         if (data.error) {
             throw new Error(getErrorMessage(data));
+        }
+        if (data.errors) {
+            throw new Error(data.errors.errorMessage || JSON.stringify(data.errors));
         }
 
         // 結果の解析
         if (!data.hotels || data.hotels.length === 0) {
-            showError('該当するホテルが見つかりませんでした。キーワードを変えて試してみてください。');
+            // デバッグ情報も表示
+            const debugInfo = data._debug ? ` (ステータス: ${data._debug.status}, キー: ${data._debug.keys.join(', ')})` : '';
+            showError(`該当するホテルが見つかりませんでした。${debugInfo}`);
             showLoading(false);
             return;
         }
