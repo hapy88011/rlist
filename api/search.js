@@ -22,9 +22,9 @@ export default async function handler(req, res) {
     }
 
     try {
-        // 楽天APIにリクエスト（openapi.rakuten.co.jp + Bearer認証）
+        // 楽天APIにリクエスト
+        // 新しいAPI (openapi.rakuten.co.jp) は accessKey パラメータを使う
         const params = new URLSearchParams({
-            applicationId: applicationId,
             keyword: keyword,
             hits: hits || '30',
             page: page || '1',
@@ -39,10 +39,11 @@ export default async function handler(req, res) {
                 'Authorization': `Bearer ${applicationId}`,
             },
         });
+
         const data = await response.json();
 
-        // エラーレスポンスもそのまま返す
-        return res.status(response.status).json(data);
+        // レスポンスをそのまま返す
+        return res.status(200).json(data);
 
     } catch (error) {
         console.error('API Proxy Error:', error);
