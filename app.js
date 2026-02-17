@@ -7,7 +7,7 @@
 const API_BASE_URL = 'https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426';
 const STORAGE_KEY_APPID = 'rlist_app_id';
 const STORAGE_KEY_ACCESS = 'rlist_access_key';
-const STORAGE_KEY_AREA = 'rlist_area_data'; // エリアデータキャッシュ
+
 const RATE_LIMIT_MS = 1100; // API制限: 1秒に1回以下 → 1.1秒間隔を確保
 
 // ===== 状態管理 =====
@@ -165,11 +165,6 @@ function saveApiKey() {
     localStorage.setItem(STORAGE_KEY_ACCESS, accessKey);
     showApiStatus('✅ 保存しました！', 'success');
 
-    // エリアデータがまだ読み込まれていなければ読み込む
-    if (!areaData || areaData.length === 0) {
-        loadAreaData();
-    }
-
     // 少し遅れて折りたたむ
     setTimeout(() => {
         elements.apiBody.classList.add('collapsed');
@@ -210,93 +205,15 @@ function showApiStatus(message, type) {
 
 // ===== エリアデータ管理 =====
 
-/** エリアデータを取得してキャッシュする */
-async function loadAreaData() {
-    // キャッシュチェック
-    const cached = sessionStorage.getItem(STORAGE_KEY_AREA);
-    if (cached) {
-        try {
-            areaData = JSON.parse(cached);
-            populateMiddleClassDropdown();
-            return;
-        } catch (e) {
-            sessionStorage.removeItem(STORAGE_KEY_AREA);
-        }
-    }
-
-    const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
-    const accessKey = elements.accessKey.value.trim() || localStorage.getItem(STORAGE_KEY_ACCESS);
-    if (!appId) return; // APIキー未設定ならスキップ
-
-    try {
-        const params = new URLSearchParams({ applicationId: appId });
-        if (accessKey) {
-            params.set('accessKey', accessKey);
-        }
-        const response = await fetch(`/api/area?${params.toString()}`);
-        const data = await response.json();
-
-        if (data.error) {
-            console.error('GetAreaClass error:', data.error, data.error_description);
-            return;
-        }
-        if (data.errors) {
-            console.error('GetAreaClass errors:', data.errors);
-            return;
-        }
-
-        // エリアデータを解析
-        areaData = parseAreaData(data);
-        // キャッシュに保存
-        sessionStorage.setItem(STORAGE_KEY_AREA, JSON.stringify(areaData));
+/** エリアデータを読み込む（静的データを使用） */
+function loadAreaData() {
+    // area-data.js で定義された AREA_DATA を使用
+    if (typeof AREA_DATA !== 'undefined' && AREA_DATA.length > 0) {
+        areaData = AREA_DATA;
         populateMiddleClassDropdown();
-
-    } catch (error) {
-        console.error('Failed to load area data:', error);
+    } else {
+        console.error('AREA_DATA is not defined. area-data.js が正しく読み込まれていません。');
     }
-}
-
-/** GetAreaClass APIレスポンスを解析して使いやすい形に変換 */
-function parseAreaData(data) {
-    const result = [];
-
-    try {
-        // formatVersion=2 のレスポンス構造を解析
-        // largeClasses → largeClass[].middleClasses → middleClass[].smallClasses
-        const largeClasses = data.areaClasses?.largeClasses || [];
-
-        for (const largeItem of largeClasses) {
-            const large = largeItem.largeClass || largeItem;
-            const middleClasses = large.middleClasses || [];
-
-            for (const middleItem of middleClasses) {
-                const middle = middleItem.middleClass || middleItem;
-                const middleCode = middle.middleClassCode;
-                const middleName = middle.middleClassName;
-
-                const smallClasses = middle.smallClasses || [];
-                const smalls = [];
-
-                for (const smallItem of smallClasses) {
-                    const small = smallItem.smallClass || smallItem;
-                    smalls.push({
-                        code: small.smallClassCode,
-                        name: small.smallClassName,
-                    });
-                }
-
-                result.push({
-                    code: middleCode,
-                    name: middleName,
-                    smallClasses: smalls,
-                });
-            }
-        }
-    } catch (e) {
-        console.error('Area data parse error:', e, data);
-    }
-
-    return result;
 }
 
 /** 都道府県ドロップダウンを生成 */
