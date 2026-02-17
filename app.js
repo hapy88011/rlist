@@ -49,8 +49,61 @@ const elements = {
     errorText: document.getElementById('errorText'),
 };
 
+// ===== ログイン認証 =====
+const AUTH_KEY = 'rlist_auth';
+const VALID_ID = btoa('rakuten');    // 軽い難読化
+const VALID_PASS = btoa('2026');
+
+function checkAuth() {
+    return sessionStorage.getItem(AUTH_KEY) === 'true';
+}
+
+function setupLogin() {
+    const overlay = document.getElementById('loginOverlay');
+    const appContent = document.getElementById('appContent');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginId = document.getElementById('loginId');
+    const loginPass = document.getElementById('loginPass');
+    const loginError = document.getElementById('loginError');
+
+    // 既にログイン済みならスキップ
+    if (checkAuth()) {
+        overlay.style.display = 'none';
+        appContent.style.display = 'block';
+        return;
+    }
+
+    function attemptLogin() {
+        const id = loginId.value.trim();
+        const pass = loginPass.value.trim();
+
+        if (btoa(id) === VALID_ID && btoa(pass) === VALID_PASS) {
+            sessionStorage.setItem(AUTH_KEY, 'true');
+            overlay.style.display = 'none';
+            appContent.style.display = 'block';
+        } else {
+            loginError.style.display = 'block';
+            loginPass.value = '';
+            loginPass.focus();
+        }
+    }
+
+    loginBtn.addEventListener('click', attemptLogin);
+
+    // Enterキーでログイン
+    loginPass.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') attemptLogin();
+    });
+    loginId.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') loginPass.focus();
+    });
+}
+
 // ===== 初期化 =====
 function init() {
+    // ログイン認証
+    setupLogin();
+
     // 保存済みAPIキーの読み込み
     loadApiKey();
 

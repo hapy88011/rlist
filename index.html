@@ -15,121 +15,148 @@
 </head>
 
 <body>
-    <!-- ヘッダー -->
-    <header class="header">
-        <div class="header-inner">
-            <h1 class="logo">
-                <span class="logo-icon">📋</span>
-                <span class="logo-text">RLIST</span>
-                <span class="logo-sub">楽天トラベル ホテル検索</span>
-            </h1>
-        </div>
-    </header>
-
-    <main class="main">
-        <!-- APIキー設定セクション -->
-        <section class="card api-card" id="apiSection">
-            <div class="card-header">
-                <h2>🔑 API設定</h2>
-                <button class="btn-toggle" id="toggleApiBtn" title="折りたたむ">▲</button>
+    <!-- ログイン画面 -->
+    <div class="login-overlay" id="loginOverlay">
+        <div class="login-card">
+            <div class="login-header">
+                <span class="login-icon">🔒</span>
+                <h2>RLIST</h2>
+                <p>ログインしてください</p>
             </div>
-            <div class="card-body" id="apiBody">
-                <p class="help-text">
-                    楽天ウェブサービスの<strong>アプリケーションID</strong>を入力してください。<br>（アプリ一覧ページで確認できます）<br>一度保存すれば、次回以降は自動で読み込まれます。</p>
+            <div class="login-body">
                 <div class="input-group">
-                    <label for="apiKey">アプリケーションID</label>
-                    <div class="input-with-btn">
-                        <input type="password" id="apiKey" placeholder="アプリケーションIDを貼り付けてください" autocomplete="off">
-                        <button class="btn btn-small" id="toggleKeyVisibility" title="表示/非表示">👁</button>
-                        <button class="btn btn-primary btn-small" id="saveApiKey">保存</button>
-                    </div>
+                    <label for="loginId">ID</label>
+                    <input type="text" id="loginId" placeholder="IDを入力" autocomplete="off">
                 </div>
-                <div class="api-status" id="apiStatus"></div>
+                <div class="input-group">
+                    <label for="loginPass">パスワード</label>
+                    <input type="password" id="loginPass" placeholder="パスワードを入力">
+                </div>
+                <div class="login-error" id="loginError" style="display: none;">IDまたはパスワードが正しくありません</div>
+                <button class="btn btn-primary btn-large" id="loginBtn" style="width: 100%;">ログイン</button>
             </div>
-        </section>
+        </div>
+    </div>
 
-        <!-- 検索セクション -->
-        <section class="card search-card">
-            <div class="card-header">
-                <h2>🔍 ホテル検索</h2>
+    <!-- メインコンテンツ（ログイン後に表示） -->
+    <div id="appContent" style="display: none;">
+        <!-- ヘッダー -->
+        <header class="header">
+            <div class="header-inner">
+                <h1 class="logo">
+                    <span class="logo-icon">📋</span>
+                    <span class="logo-text">RLIST</span>
+                    <span class="logo-sub">楽天トラベル ホテル検索</span>
+                </h1>
             </div>
-            <div class="card-body">
-                <div class="search-form">
+        </header>
+
+        <main class="main">
+            <!-- APIキー設定セクション -->
+            <section class="card api-card" id="apiSection">
+                <div class="card-header">
+                    <h2>🔑 API設定</h2>
+                    <button class="btn-toggle" id="toggleApiBtn" title="折りたたむ">▲</button>
+                </div>
+                <div class="card-body" id="apiBody">
+                    <p class="help-text">
+                        楽天ウェブサービスの<strong>アプリケーションID</strong>を入力してください。<br>（アプリ一覧ページで確認できます）<br>一度保存すれば、次回以降は自動で読み込まれます。
+                    </p>
                     <div class="input-group">
-                        <label for="keyword">キーワード</label>
-                        <input type="text" id="keyword" placeholder="例: 東京 渋谷、箱根 温泉、大阪 駅近 ..." autofocus>
-                    </div>
-                    <div class="search-options">
-                        <div class="input-group input-small">
-                            <label for="hits">表示件数</label>
-                            <select id="hits">
-                                <option value="10">10件</option>
-                                <option value="20">20件</option>
-                                <option value="30" selected>30件</option>
-                            </select>
+                        <label for="apiKey">アプリケーションID</label>
+                        <div class="input-with-btn">
+                            <input type="password" id="apiKey" placeholder="アプリケーションIDを貼り付けてください" autocomplete="off">
+                            <button class="btn btn-small" id="toggleKeyVisibility" title="表示/非表示">👁</button>
+                            <button class="btn btn-primary btn-small" id="saveApiKey">保存</button>
                         </div>
                     </div>
-                    <button class="btn btn-primary btn-large" id="searchBtn">
-                        <span class="btn-icon">🔍</span>
-                        検索する
+                    <div class="api-status" id="apiStatus"></div>
+                </div>
+            </section>
+
+            <!-- 検索セクション -->
+            <section class="card search-card">
+                <div class="card-header">
+                    <h2>🔍 ホテル検索</h2>
+                </div>
+                <div class="card-body">
+                    <div class="search-form">
+                        <div class="input-group">
+                            <label for="keyword">キーワード</label>
+                            <input type="text" id="keyword" placeholder="例: 東京 渋谷、箱根 温泉、大阪 駅近 ..." autofocus>
+                        </div>
+                        <div class="search-options">
+                            <div class="input-group input-small">
+                                <label for="hits">表示件数</label>
+                                <select id="hits">
+                                    <option value="10">10件</option>
+                                    <option value="20">20件</option>
+                                    <option value="30" selected>30件</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-large" id="searchBtn">
+                            <span class="btn-icon">🔍</span>
+                            検索する
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 検索結果セクション -->
+            <section class="card results-card" id="resultsSection" style="display: none;">
+                <div class="card-header">
+                    <h2>📊 検索結果 <span class="result-count" id="resultCount"></span></h2>
+                    <button class="btn btn-accent" id="csvBtn">
+                        <span class="btn-icon">📥</span>
+                        CSVダウンロード
                     </button>
                 </div>
-            </div>
-        </section>
-
-        <!-- 検索結果セクション -->
-        <section class="card results-card" id="resultsSection" style="display: none;">
-            <div class="card-header">
-                <h2>📊 検索結果 <span class="result-count" id="resultCount"></span></h2>
-                <button class="btn btn-accent" id="csvBtn">
-                    <span class="btn-icon">📥</span>
-                    CSVダウンロード
-                </button>
-            </div>
-            <div class="card-body">
-                <div class="table-wrapper">
-                    <table class="results-table" id="resultsTable">
-                        <thead>
-                            <tr>
-                                <th class="th-num">#</th>
-                                <th class="th-name">ホテル名</th>
-                                <th class="th-area">エリア</th>
-                                <th class="th-address">住所</th>
-                                <th class="th-tel">電話番号</th>
-                                <th class="th-access">アクセス</th>
-                                <th class="th-price">最低料金</th>
-                                <th class="th-rating">評価</th>
-                                <th class="th-link">リンク</th>
-                            </tr>
-                        </thead>
-                        <tbody id="resultsBody">
-                        </tbody>
-                    </table>
+                <div class="card-body">
+                    <div class="table-wrapper">
+                        <table class="results-table" id="resultsTable">
+                            <thead>
+                                <tr>
+                                    <th class="th-num">#</th>
+                                    <th class="th-name">ホテル名</th>
+                                    <th class="th-area">エリア</th>
+                                    <th class="th-address">住所</th>
+                                    <th class="th-tel">電話番号</th>
+                                    <th class="th-access">アクセス</th>
+                                    <th class="th-price">最低料金</th>
+                                    <th class="th-rating">評価</th>
+                                    <th class="th-link">リンク</th>
+                                </tr>
+                            </thead>
+                            <tbody id="resultsBody">
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
+                <!-- ページネーション -->
+                <div class="pagination" id="pagination" style="display: none;">
+                    <button class="btn btn-small" id="prevPage" disabled>← 前へ</button>
+                    <span class="page-info" id="pageInfo">1 / 1</span>
+                    <button class="btn btn-small" id="nextPage">次へ →</button>
+                </div>
+            </section>
+
+            <!-- ローディング -->
+            <div class="loading" id="loading" style="display: none;">
+                <div class="spinner"></div>
+                <p>検索中...</p>
             </div>
-            <!-- ページネーション -->
-            <div class="pagination" id="pagination" style="display: none;">
-                <button class="btn btn-small" id="prevPage" disabled>← 前へ</button>
-                <span class="page-info" id="pageInfo">1 / 1</span>
-                <button class="btn btn-small" id="nextPage">次へ →</button>
+
+            <!-- エラー表示 -->
+            <div class="error-message" id="errorMessage" style="display: none;">
+                <p id="errorText"></p>
             </div>
-        </section>
+        </main>
 
-        <!-- ローディング -->
-        <div class="loading" id="loading" style="display: none;">
-            <div class="spinner"></div>
-            <p>検索中...</p>
-        </div>
-
-        <!-- エラー表示 -->
-        <div class="error-message" id="errorMessage" style="display: none;">
-            <p id="errorText"></p>
-        </div>
-    </main>
-
-    <footer class="footer">
-        <p>Powered by <a href="https://webservice.rakuten.co.jp/" target="_blank">楽天ウェブサービス</a></p>
-    </footer>
+        <footer class="footer">
+            <p>Powered by <a href="https://webservice.rakuten.co.jp/" target="_blank">楽天ウェブサービス</a></p>
+        </footer>
+    </div><!-- /appContent -->
 
     <script src="app.js"></script>
 </body>

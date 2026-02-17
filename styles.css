@@ -75,6 +75,106 @@ body {
     flex-direction: column;
 }
 
+/* === Login Overlay === */
+.login-overlay {
+    position: fixed;
+    inset: 0;
+    background: var(--bg-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.login-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg), var(--shadow-glow);
+    width: 100%;
+    max-width: 380px;
+    margin: 1rem;
+    overflow: hidden;
+    animation: slideUp 0.4s ease;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.login-header {
+    text-align: center;
+    padding: 2rem 2rem 1rem;
+}
+
+.login-icon {
+    font-size: 2.5rem;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.login-header h2 {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.login-header p {
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+    margin-top: 0.25rem;
+}
+
+.login-body {
+    padding: 1rem 2rem 2rem;
+}
+
+.login-error {
+    color: var(--accent-danger);
+    font-size: var(--font-size-xs);
+    text-align: center;
+    margin-bottom: 0.75rem;
+    animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-5px);
+    }
+
+    75% {
+        transform: translateX(5px);
+    }
+}
+
 /* === Header === */
 .header {
     background: var(--gradient-header);
@@ -417,25 +517,89 @@ select {
     color: var(--text-primary);
 }
 
-.th-num { width: 40px; text-align: center; }
-.th-name { min-width: 200px; }
-.th-area { min-width: 100px; }
-.th-address { min-width: 200px; }
-.th-tel { min-width: 130px; white-space: nowrap; }
-.th-access { min-width: 180px; }
-.th-price { min-width: 100px; text-align: right; }
-.th-rating { min-width: 70px; text-align: center; }
-.th-link { min-width: 80px; text-align: center; }
+.th-num {
+    width: 40px;
+    text-align: center;
+}
 
-td.td-num { text-align: center; color: var(--text-muted); }
-td.td-name { font-weight: 500; color: var(--text-primary); }
-td.td-area { color: var(--text-secondary); font-size: var(--font-size-xs); }
-td.td-address { color: var(--text-secondary); font-size: var(--font-size-xs); }
-td.td-tel { white-space: nowrap; }
-td.td-access { color: var(--text-secondary); font-size: var(--font-size-xs); }
-td.td-price { text-align: right; font-weight: 600; color: var(--accent-warning); }
-td.td-rating { text-align: center; }
-td.td-link { text-align: center; }
+.th-name {
+    min-width: 200px;
+}
+
+.th-area {
+    min-width: 100px;
+}
+
+.th-address {
+    min-width: 200px;
+}
+
+.th-tel {
+    min-width: 130px;
+    white-space: nowrap;
+}
+
+.th-access {
+    min-width: 180px;
+}
+
+.th-price {
+    min-width: 100px;
+    text-align: right;
+}
+
+.th-rating {
+    min-width: 70px;
+    text-align: center;
+}
+
+.th-link {
+    min-width: 80px;
+    text-align: center;
+}
+
+td.td-num {
+    text-align: center;
+    color: var(--text-muted);
+}
+
+td.td-name {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+td.td-area {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+td.td-address {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+td.td-tel {
+    white-space: nowrap;
+}
+
+td.td-access {
+    color: var(--text-secondary);
+    font-size: var(--font-size-xs);
+}
+
+td.td-price {
+    text-align: right;
+    font-weight: 600;
+    color: var(--accent-warning);
+}
+
+td.td-rating {
+    text-align: center;
+}
+
+td.td-link {
+    text-align: center;
+}
 
 /* Rating badge */
 .rating-badge {
@@ -528,7 +692,9 @@ td.td-link { text-align: center; }
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .loading p {
