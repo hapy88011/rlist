@@ -1,12 +1,9 @@
 // Vercel Serverless Function: 楽天トラベル GetAreaClass API プロキシ
-// エリアコード一覧を取得して返す
+// エリアコードを取得するためのプロキシ
 
 export default async function handler(req, res) {
-    // CORS ヘッダー
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET');
-    // エリアデータはほとんど変わらないので1日キャッシュ
-    res.setHeader('Cache-Control', 'public, max-age=86400');
 
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -14,42 +11,23 @@ export default async function handler(req, res) {
 
     const { applicationId, accessKey } = req.query;
 
-    if (!applicationId) {
-        return res.status(400).json({ error: 'applicationId is required' });
+    if (!applicationId || !accessKey) {
+        return res.status(400).json({ error: 'applicationId and accessKey are required' });
     }
 
     try {
-        const params = new URLSearchParams({
-            applicationId: applicationId,
-            formatVersion: '2',
-            format: 'json',
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20131024?applicationId=${applicationId}&format=json&formatVersion=2`;
+
+        const response = await fetch(apiUrl, {
+            headers: {
+                'Authorization': `Bearer ${accessKey}`,
+                'Referer': 'https://rlist-seven.vercel.app',
+                'Origin': 'https://rlist-seven.vercel.app',
+                'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
+            },
         });
 
-        // accessKeyがあればURLパラメータにも追加
-        if (accessKey) {
-            params.set('accessKey', accessKey);
-        }
-
-        // openapi ドメインを使用（KeywordHotelSearchと同じ）
-        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20140210?${params.toString()}`;
-
-        // ブラウザから送られてきたReferer/Originを取得して転送
-        const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
-
-        const headers = {
-            'Referer': browserReferer,
-            'Origin': 'https://rlist-seven.vercel.app',
-            'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
-        };
-
-        // accessKeyがあればBearerトークンとしても送信
-        if (accessKey) {
-            headers['Authorization'] = `Bearer ${accessKey}`;
-        }
-
-        const response = await fetch(apiUrl, { headers });
         const data = await response.json();
-
         return res.status(200).json(data);
 
     } catch (error) {
