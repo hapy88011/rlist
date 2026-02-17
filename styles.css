@@ -365,6 +365,38 @@ select {
     gap: 1rem;
 }
 
+/* === Area Select === */
+.area-select-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.area-label {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.area-selects {
+    display: flex;
+    gap: 0.75rem;
+}
+
+.input-area {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.input-area select {
+    width: 100%;
+}
+
+.input-area select:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .search-options {
     display: flex;
     gap: 1rem;
@@ -763,6 +795,10 @@ td.td-link {
     }
 
     .search-options {
+        flex-direction: column;
+    }
+
+    .area-selects {
         flex-direction: column;
     }
 

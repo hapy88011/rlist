@@ -7,6 +7,7 @@
 const API_BASE_URL = 'https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426';
 const STORAGE_KEY_APPID = 'rlist_app_id';
 const STORAGE_KEY_ACCESS = 'rlist_access_key';
+const STORAGE_KEY_AREA = 'rlist_area_data'; // エリアデータキャッシュ
 const RATE_LIMIT_MS = 1100; // API制限: 1秒に1回以下 → 1.1秒間隔を確保
 
 // ===== 状態管理 =====
@@ -16,6 +17,7 @@ let totalPages = 1;       // 合計ページ数
 let currentKeyword = '';   // 現在の検索キーワード
 let currentHits = 30;     // 現在の表示件数
 let lastRequestTime = 0;   // 前回のAPIリクエスト時刻（レート制限用）
+let areaData = null;       // エリアデータ（キャッシュ用）
 
 // ===== DOM要素の取得 =====
 const elements = {
@@ -32,6 +34,10 @@ const elements = {
     keyword: document.getElementById('keyword'),
     hits: document.getElementById('hits'),
     searchBtn: document.getElementById('searchBtn'),
+
+    // エリア選択
+    middleClass: document.getElementById('middleClass'),
+    smallClass: document.getElementById('smallClass'),
 
     // 結果
     resultsSection: document.getElementById('resultsSection'),
@@ -122,6 +128,12 @@ function init() {
     elements.keyword.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') searchHotels();
     });
+
+    // エリア選択の連動
+    elements.middleClass.addEventListener('change', onMiddleClassChange);
+
+    // エリアデータの読み込み
+    loadAreaData();
 }
 
 // ===== APIキー管理 =====
@@ -152,6 +164,11 @@ function saveApiKey() {
     localStorage.setItem(STORAGE_KEY_APPID, appId);
     localStorage.setItem(STORAGE_KEY_ACCESS, accessKey);
     showApiStatus('✅ 保存しました！', 'success');
+
+    // エリアデータがまだ読み込まれていなければ読み込む
+    if (!areaData || areaData.length === 0) {
+        loadAreaData();
+    }
 
     // 少し遅れて折りたたむ
     setTimeout(() => {
@@ -191,6 +208,128 @@ function showApiStatus(message, type) {
     elements.apiStatus.className = `api-status ${type}`;
 }
 
+// ===== エリアデータ管理 =====
+
+/** エリアデータを取得してキャッシュする */
+async function loadAreaData() {
+    // キャッシュチェック
+    const cached = sessionStorage.getItem(STORAGE_KEY_AREA);
+    if (cached) {
+        try {
+            areaData = JSON.parse(cached);
+            populateMiddleClassDropdown();
+            return;
+        } catch (e) {
+            sessionStorage.removeItem(STORAGE_KEY_AREA);
+        }
+    }
+
+    const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
+    if (!appId) return; // APIキー未設定ならスキップ
+
+    try {
+        const params = new URLSearchParams({ applicationId: appId });
+        const response = await fetch(`/api/area?${params.toString()}`);
+        const data = await response.json();
+
+        if (data.error) {
+            console.error('GetAreaClass error:', data.error);
+            return;
+        }
+
+        // エリアデータを解析
+        areaData = parseAreaData(data);
+        // キャッシュに保存
+        sessionStorage.setItem(STORAGE_KEY_AREA, JSON.stringify(areaData));
+        populateMiddleClassDropdown();
+
+    } catch (error) {
+        console.error('Failed to load area data:', error);
+    }
+}
+
+/** GetAreaClass APIレスポンスを解析して使いやすい形に変換 */
+function parseAreaData(data) {
+    const result = [];
+
+    try {
+        // formatVersion=2 のレスポンス構造を解析
+        // largeClasses → largeClass[].middleClasses → middleClass[].smallClasses
+        const largeClasses = data.areaClasses?.largeClasses || [];
+
+        for (const largeItem of largeClasses) {
+            const large = largeItem.largeClass || largeItem;
+            const middleClasses = large.middleClasses || [];
+
+            for (const middleItem of middleClasses) {
+                const middle = middleItem.middleClass || middleItem;
+                const middleCode = middle.middleClassCode;
+                const middleName = middle.middleClassName;
+
+                const smallClasses = middle.smallClasses || [];
+                const smalls = [];
+
+                for (const smallItem of smallClasses) {
+                    const small = smallItem.smallClass || smallItem;
+                    smalls.push({
+                        code: small.smallClassCode,
+                        name: small.smallClassName,
+                    });
+                }
+
+                result.push({
+                    code: middleCode,
+                    name: middleName,
+                    smallClasses: smalls,
+                });
+            }
+        }
+    } catch (e) {
+        console.error('Area data parse error:', e, data);
+    }
+
+    return result;
+}
+
+/** 都道府県ドロップダウンを生成 */
+function populateMiddleClassDropdown() {
+    if (!areaData || areaData.length === 0) return;
+
+    elements.middleClass.innerHTML = '<option value="">都道府県を選択</option>';
+    for (const middle of areaData) {
+        const option = document.createElement('option');
+        option.value = middle.code;
+        option.textContent = middle.name;
+        elements.middleClass.appendChild(option);
+    }
+}
+
+/** 都道府県が変更されたとき、小エリアを更新 */
+function onMiddleClassChange() {
+    const middleCode = elements.middleClass.value;
+    elements.smallClass.innerHTML = '<option value="">小エリアを選択</option>';
+
+    if (!middleCode) {
+        elements.smallClass.disabled = true;
+        return;
+    }
+
+    // 選択された都道府県の小エリアを取得
+    const middle = areaData.find(m => m.code === middleCode);
+    if (!middle || middle.smallClasses.length === 0) {
+        elements.smallClass.disabled = true;
+        return;
+    }
+
+    for (const small of middle.smallClasses) {
+        const option = document.createElement('option');
+        option.value = small.code;
+        option.textContent = small.name;
+        elements.smallClass.appendChild(option);
+    }
+    elements.smallClass.disabled = false;
+}
+
 // ===== ホテル検索 =====
 
 /** 楽天トラベルAPIでホテルを検索 */
@@ -198,6 +337,8 @@ async function searchHotels() {
     const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
     const accessKey = elements.accessKey.value.trim() || localStorage.getItem(STORAGE_KEY_ACCESS);
     const keyword = elements.keyword.value.trim();
+    const middleClassCode = elements.middleClass.value;
+    const smallClassCode = elements.smallClass.value;
     const hitsValue = elements.hits.value;
     const totalWanted = hitsValue === 'all' ? 3000 : parseInt(hitsValue);
 
@@ -206,11 +347,11 @@ async function searchHotels() {
         showError('API設定が必要です。上の「API設定」セクションからアプリケーションIDとアクセスキーを入力してください。');
         return;
     }
-    if (!keyword) {
-        showError('検索キーワードを入力してください。（例: 東京 渋谷）');
+    if (!keyword && !middleClassCode) {
+        showError('キーワードまたはエリアを指定してください。');
         return;
     }
-    if (keyword.length < 2) {
+    if (keyword && keyword.length < 2) {
         showError('キーワードは2文字以上入力してください。');
         return;
     }
@@ -250,10 +391,22 @@ async function searchHotels() {
             const params = new URLSearchParams({
                 applicationId: appId,
                 accessKey: accessKey,
-                keyword: keyword,
                 hits: PER_PAGE,
                 page: page,
             });
+
+            // キーワードがあれば追加
+            if (keyword) {
+                params.set('keyword', keyword);
+            }
+
+            // エリアコードがあれば追加
+            if (middleClassCode) {
+                params.set('middleClassCode', middleClassCode);
+                if (smallClassCode) {
+                    params.set('smallClassCode', smallClassCode);
+                }
+            }
 
             const response = await fetch(`/api/search?${params.toString()}`);
             const data = await response.json();

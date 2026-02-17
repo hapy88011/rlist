@@ -11,25 +11,38 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { keyword, hits, page, applicationId, accessKey } = req.query;
+    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode } = req.query;
 
     if (!applicationId || !accessKey) {
         return res.status(400).json({ error: 'applicationId and accessKey are required' });
     }
-    if (!keyword) {
-        return res.status(400).json({ error: 'keyword is required' });
+    if (!keyword && !middleClassCode) {
+        return res.status(400).json({ error: 'keyword or middleClassCode is required' });
     }
 
     try {
         const params = new URLSearchParams({
             applicationId: applicationId,
             accessKey: accessKey,
-            keyword: keyword,
             hits: hits || '30',
             page: page || '1',
             formatVersion: '2',
             format: 'json',
         });
+
+        // キーワードがあれば追加
+        if (keyword) {
+            params.set('keyword', keyword);
+        }
+
+        // エリアコードがあれば追加
+        if (middleClassCode) {
+            params.set('largeClassCode', 'japan');
+            params.set('middleClassCode', middleClassCode);
+            if (smallClassCode) {
+                params.set('smallClassCode', smallClassCode);
+            }
+        }
 
         const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
 
