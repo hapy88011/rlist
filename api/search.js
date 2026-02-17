@@ -30,26 +30,23 @@ export default async function handler(req, res) {
             format: 'json',
         });
 
-        // キーワードがあれば追加
-        if (keyword) {
-            params.set('keyword', keyword);
+        // キーワードがない場合、エリア検索用にデフォルトキーワード「ホテル」を使用
+        // （KeywordHotelSearch APIはキーワード必須のため）
+        const effectiveKeyword = keyword || (middleClassCode ? 'ホテル' : '');
+        if (effectiveKeyword) {
+            params.set('keyword', effectiveKeyword);
         }
-
-        // キーワードがある場合はKeywordHotelSearch、ない場合はSimpleHotelSearchを使用
-        const apiName = keyword ? 'KeywordHotelSearch' : 'SimpleHotelSearch';
 
         // エリアコードがあれば追加
         if (middleClassCode) {
             params.set('largeClassCode', 'japan');
             params.set('middleClassCode', middleClassCode);
-            // SimpleHotelSearchではsmallClassCodeを指定するとdetailClassCodeも必須になるため、
-            // KeywordHotelSearch使用時のみsmallClassCodeを追加
-            if (smallClassCode && keyword) {
+            if (smallClassCode) {
                 params.set('smallClassCode', smallClassCode);
             }
         }
 
-        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/${apiName}/20170426?${params.toString()}`;
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
 
         // ブラウザから送られてきたReferer/Originを取得して転送
         const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
