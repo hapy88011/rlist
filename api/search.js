@@ -11,7 +11,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode } = req.query;
+    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassName } = req.query;
 
     if (!applicationId || !accessKey) {
         return res.status(400).json({ error: 'applicationId and accessKey are required' });
@@ -30,20 +30,24 @@ export default async function handler(req, res) {
             format: 'json',
         });
 
-        // キーワードがない場合、エリア検索用にデフォルトキーワード「ホテル」を使用
-        // （KeywordHotelSearch APIはキーワード必須のため）
-        const effectiveKeyword = keyword || (middleClassCode ? 'ホテル' : '');
+        // キーワード構築: ユーザー入力キーワード + 小エリア名
+        // KeywordHotelSearchはsmallClassCodeをサポートしていないため、
+        // 小エリア名をキーワードに含めて絞り込む
+        let effectiveKeyword = keyword || '';
+        if (smallClassName) {
+            effectiveKeyword = effectiveKeyword ? `${effectiveKeyword} ${smallClassName}` : smallClassName;
+        }
+        // キーワードがまだない場合（エリアのみ検索）、デフォルトキーワードを使用
+        if (!effectiveKeyword && middleClassCode) {
+            effectiveKeyword = 'ホテル';
+        }
         if (effectiveKeyword) {
             params.set('keyword', effectiveKeyword);
         }
 
-        // エリアコードがあれば追加
+        // エリアコードがあれば追加（middleClassCodeのみサポート）
         if (middleClassCode) {
-            params.set('largeClassCode', 'japan');
             params.set('middleClassCode', middleClassCode);
-            if (smallClassCode) {
-                params.set('smallClassCode', smallClassCode);
-            }
         }
 
         const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;

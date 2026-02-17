@@ -264,6 +264,10 @@ async function searchHotels() {
     const keyword = elements.keyword.value.trim();
     const middleClassCode = elements.middleClass.value;
     const smallClassCode = elements.smallClass.value;
+    // KeywordHotelSearchはsmallClassCodeに対応していないため、
+    // 小エリアの名前をキーワードに含めて絞り込む
+    const smallClassOption = elements.smallClass.options[elements.smallClass.selectedIndex];
+    const smallClassName = (smallClassCode && smallClassOption) ? smallClassOption.textContent : '';
     const hitsValue = elements.hits.value;
     const totalWanted = hitsValue === 'all' ? 3000 : parseInt(hitsValue);
 
@@ -328,9 +332,11 @@ async function searchHotels() {
             // エリアコードがあれば追加
             if (middleClassCode) {
                 params.set('middleClassCode', middleClassCode);
-                if (smallClassCode) {
-                    params.set('smallClassCode', smallClassCode);
-                }
+            }
+
+            // 小エリア名があれば追加（キーワード絞り込み用）
+            if (smallClassName) {
+                params.set('smallClassName', smallClassName);
             }
 
             const response = await fetch(`/api/search?${params.toString()}`);
