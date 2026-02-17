@@ -4,7 +4,7 @@
    ============================================ */
 
 // ===== 定数 =====
-const API_BASE_URL = 'https://app.rakuten.co.jp/services/api/Travel/KeywordHotelSearch/20170426';
+const API_BASE_URL = 'https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426';
 const STORAGE_KEY_APPID = 'rlist_app_id';
 const STORAGE_KEY_ACCESS = 'rlist_access_key';
 const RATE_LIMIT_MS = 1100; // API制限: 1秒に1回以下 → 1.1秒間隔を確保
@@ -234,17 +234,16 @@ async function searchHotels(page = 1) {
     lastRequestTime = Date.now();
 
     try {
-        // サーバー経由でAPIリクエスト（CORS回避のため）
-        const params = new URLSearchParams({
+        // JSONP方式でAPIリクエスト（ブラウザから直接、Refererが自然に送られる）
+        const data = await callApiJsonp({
             applicationId: appId,
             accessKey: accessKey,
             keyword: keyword,
             hits: hits,
             page: page,
+            formatVersion: '2',
+            format: 'json',
         });
-
-        const response = await fetch(`/api/search?${params.toString()}`);
-        const data = await response.json();
 
         // デバッグ: レスポンス内容をコンソールに出力
         console.log('API Response:', JSON.stringify(data, null, 2));
