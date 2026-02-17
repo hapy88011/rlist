@@ -225,10 +225,14 @@ async function loadAreaData() {
     }
 
     const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
+    const accessKey = elements.accessKey.value.trim() || localStorage.getItem(STORAGE_KEY_ACCESS);
     if (!appId) return; // APIキー未設定ならスキップ
 
     try {
         const params = new URLSearchParams({ applicationId: appId });
+        if (accessKey) {
+            params.set('accessKey', accessKey);
+        }
         const response = await fetch(`/api/area?${params.toString()}`);
         const data = await response.json();
 

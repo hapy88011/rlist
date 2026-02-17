@@ -12,28 +12,51 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { applicationId } = req.query;
+    const { applicationId, accessKey } = req.query;
 
     if (!applicationId) {
         return res.status(400).json({ error: 'applicationId is required' });
     }
 
     try {
+        // まず openapi.rakuten.co.jp で試行（KeywordHotelSearchと同じドメイン）
         const params = new URLSearchParams({
             applicationId: applicationId,
             formatVersion: '2',
             format: 'json',
         });
 
-        const apiUrl = `https://app.rakuten.co.jp/services/api/Travel/GetAreaClass/20140210?${params.toString()}`;
+        // accessKeyがあれば追加
+        if (accessKey) {
+            params.set('accessKey', accessKey);
+        }
 
-        const response = await fetch(apiUrl, {
+        // openapi ドメインで試行
+        let apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20140210?${params.toString()}`;
+
+        const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
+
+        let response = await fetch(apiUrl, {
             headers: {
+                'Referer': browserReferer,
+                'Origin': 'https://rlist-seven.vercel.app',
                 'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
             },
         });
 
-        const data = await response.json();
+        let data = await response.json();
+
+        // openapi がエラーの場合、app.rakuten.co.jp にフォールバック
+        if (data.error) {
+            const fallbackUrl = `https://app.rakuten.co.jp/services/api/Travel/GetAreaClass/20140210?${params.toString()}`;
+            const fallbackResponse = await fetch(fallbackUrl, {
+                headers: {
+                    'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
+                },
+            });
+            data = await fallbackResponse.json();
+        }
+
         return res.status(200).json(data);
 
     } catch (error) {
