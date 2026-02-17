@@ -438,9 +438,8 @@ function downloadCSV() {
     const headers = ['#', 'ホテル名', 'エリア', '住所', '電話番号', 'アクセス', '最低料金', '評価', 'レビュー数', 'URL'];
 
     // CSVデータ行
-    const offset = (currentPage - 1) * currentHits;
     const rows = currentResults.map((hotel, index) => [
-        offset + index + 1,
+        index + 1,
         hotel.hotelName,
         hotel.areaName,
         `${hotel.address1}${hotel.address2}`,
