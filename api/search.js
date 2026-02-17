@@ -5,6 +5,8 @@ export default async function handler(req, res) {
     // CORS ヘッダー
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET');
+    // キャッシュ無効化
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
     // GETのみ許可
     if (req.method !== 'GET') {
@@ -24,9 +26,10 @@ export default async function handler(req, res) {
     try {
         // 楽天APIにリクエスト
         // applicationId → URLパラメータ
-        // accessKey → Bearer認証ヘッダー
+        // accessKey → URLパラメータ AND Bearer認証ヘッダー（両方送る）
         const params = new URLSearchParams({
             applicationId: applicationId,
+            accessKey: accessKey,
             keyword: keyword,
             hits: hits || '30',
             page: page || '1',
@@ -44,15 +47,8 @@ export default async function handler(req, res) {
 
         const data = await response.json();
 
-        // デバッグ情報を付加して返す
-        return res.status(200).json({
-            _debug: {
-                status: response.status,
-                hasHotels: !!(data && data.hotels),
-                keys: data ? Object.keys(data) : [],
-            },
-            ...data,
-        });
+        // レスポンスをそのまま返す
+        return res.status(200).json(data);
 
     } catch (error) {
         console.error('API Proxy Error:', error);
