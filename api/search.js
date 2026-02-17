@@ -35,17 +35,20 @@ export default async function handler(req, res) {
             params.set('keyword', keyword);
         }
 
+        // キーワードがある場合はKeywordHotelSearch、ない場合はSimpleHotelSearchを使用
+        const apiName = keyword ? 'KeywordHotelSearch' : 'SimpleHotelSearch';
+
         // エリアコードがあれば追加
         if (middleClassCode) {
             params.set('largeClassCode', 'japan');
             params.set('middleClassCode', middleClassCode);
-            if (smallClassCode) {
+            // SimpleHotelSearchではsmallClassCodeを指定するとdetailClassCodeも必須になるため、
+            // KeywordHotelSearch使用時のみsmallClassCodeを追加
+            if (smallClassCode && keyword) {
                 params.set('smallClassCode', smallClassCode);
             }
         }
 
-        // キーワードがある場合はKeywordHotelSearch、ない場合はSimpleHotelSearchを使用
-        const apiName = keyword ? 'KeywordHotelSearch' : 'SimpleHotelSearch';
         const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/${apiName}/20170426?${params.toString()}`;
 
         // ブラウザから送られてきたReferer/Originを取得して転送
