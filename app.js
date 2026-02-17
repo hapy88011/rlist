@@ -289,13 +289,32 @@ async function searchHotels(page = 1) {
 
 /** APIから取得したデータを見やすい形に変換 */
 function parseHotels(hotels) {
-    return hotels.map((hotelData) => {
-        // hotel配列の中から各情報を取得
-        const hotelBasic = hotelData.hotel.find(item => item.hotelBasicInfo);
-        const hotelRating = hotelData.hotel.find(item => item.hotelRatingInfo);
+    // デバッグ: 最初のホテルの構造を確認
+    if (hotels.length > 0) {
+        console.log('First hotel structure:', JSON.stringify(hotels[0], null, 2));
+    }
 
-        const basic = hotelBasic ? hotelBasic.hotelBasicInfo : {};
-        const rating = hotelRating ? hotelRating.hotelRatingInfo : {};
+    return hotels.map((hotelData) => {
+        let basic = {};
+        let rating = {};
+
+        // formatVersion=1: hotelData.hotel が配列で中にオブジェクトが入る
+        if (hotelData.hotel && Array.isArray(hotelData.hotel)) {
+            const hotelBasic = hotelData.hotel.find(item => item.hotelBasicInfo);
+            const hotelRating = hotelData.hotel.find(item => item.hotelRatingInfo);
+            basic = hotelBasic ? hotelBasic.hotelBasicInfo : {};
+            rating = hotelRating ? hotelRating.hotelRatingInfo : {};
+        }
+        // formatVersion=2: hotelData に直接 hotelBasicInfo がある
+        else if (hotelData.hotelBasicInfo) {
+            basic = hotelData.hotelBasicInfo;
+            rating = hotelData.hotelRatingInfo || {};
+        }
+        // formatVersion=2 のさらにフラット: hotelData に直接プロパティがある
+        else if (hotelData.hotelName) {
+            basic = hotelData;
+            rating = {};
+        }
 
         return {
             hotelName: basic.hotelName || '',
