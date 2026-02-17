@@ -48,6 +48,8 @@ export default async function handler(req, res) {
 
         const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
 
+        console.log('API URL:', apiUrl);
+
         // ブラウザから送られてきたReferer/Originを取得して転送
         const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
 
@@ -61,6 +63,8 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
+        // デバッグ用: APIバージョンとURLをレスポンスに含める
+        data._debug = { apiUrl: apiUrl.replace(/applicationId=[^&]+/, 'applicationId=***').replace(/accessKey=[^&]+/, 'accessKey=***'), version: 'v3-keyword-only' };
         return res.status(200).json(data);
 
     } catch (error) {
