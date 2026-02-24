@@ -1,11 +1,17 @@
 // Vercel Serverless Function: 楽天トラベルAPI プロキシ
-// ブラウザのRefererヘッダーをそのまま転送してCORS制限を回避
+// CORS制限を回避するためのプロキシサーバー
 
 export default async function handler(req, res) {
-    // CORS ヘッダー
+    // CORS ヘッダー（全レスポンスに適用）
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+    // OPTIONSプリフライトリクエストの処理
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -23,7 +29,6 @@ export default async function handler(req, res) {
     try {
         const params = new URLSearchParams({
             applicationId: applicationId,
-            accessKey: accessKey,
             hits: hits || '30',
             page: page || '1',
             formatVersion: '2',
@@ -31,13 +36,10 @@ export default async function handler(req, res) {
         });
 
         // キーワード構築: ユーザー入力キーワード + 小エリア名
-        // KeywordHotelSearchはsmallClassCodeをサポートしていないため、
-        // 小エリア名をキーワードに含めて絞り込む
         let effectiveKeyword = keyword || '';
         if (smallClassName) {
             effectiveKeyword = effectiveKeyword ? `${effectiveKeyword} ${smallClassName}` : smallClassName;
         }
-        // キーワードがまだない場合（エリアのみ検索）、デフォルトキーワードを使用
         if (!effectiveKeyword && middleClassCode) {
             effectiveKeyword = 'ホテル';
         }
@@ -45,7 +47,7 @@ export default async function handler(req, res) {
             params.set('keyword', effectiveKeyword);
         }
 
-        // エリアコードがあれば追加（middleClassCodeのみサポート）
+        // エリアコードがあれば追加
         if (middleClassCode) {
             params.set('middleClassCode', middleClassCode);
         }
@@ -54,15 +56,9 @@ export default async function handler(req, res) {
 
         console.log('API URL:', apiUrl);
 
-        // ブラウザから送られてきたReferer/Originを取得して転送
-        const browserReferer = req.headers.referer || req.headers.origin || 'https://rlist-seven.vercel.app/';
-
         const response = await fetch(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${accessKey}`,
-                'Referer': browserReferer,
-                'Origin': 'https://rlist-seven.vercel.app',
-                'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
             },
         });
 
