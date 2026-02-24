@@ -258,7 +258,7 @@ function onMiddleClassChange() {
 // ===== ホテル検索 =====
 
 /** 指定条件で複数ページのホテルデータを取得するヘルパー関数 */
-async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallClassName, sort, maxResults, progressPrefix }) {
+async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallClassCode, sort, maxResults, progressPrefix }) {
     const PER_PAGE = 30;
     const MAX_API_RESULTS = 3000; // API制限: 100ページ × 30件
     const limit = Math.min(maxResults, MAX_API_RESULTS);
@@ -289,7 +289,7 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
 
         if (keyword) params.set('keyword', keyword);
         if (middleClassCode) params.set('middleClassCode', middleClassCode);
-        if (smallClassName) params.set('smallClassName', smallClassName);
+        if (smallClassCode) params.set('smallClassCode', smallClassCode);
         if (sort) params.set('sort', sort);
 
         const response = await fetch(`/api/search?${params.toString()}`);
@@ -334,8 +334,6 @@ async function searchHotels() {
     const keyword = elements.keyword.value.trim();
     const middleClassCode = elements.middleClass.value;
     const smallClassCode = elements.smallClass.value;
-    const smallClassOption = elements.smallClass.options[elements.smallClass.selectedIndex];
-    const smallClassName = (smallClassCode && smallClassOption) ? smallClassOption.textContent : '';
     const hitsValue = elements.hits.value;
     let totalWanted = hitsValue === 'all' ? Infinity : parseInt(hitsValue);
 
@@ -363,7 +361,7 @@ async function searchHotels() {
     hideError();
     elements.resultsSection.style.display = 'none';
 
-    const fetchParams = { appId, accessKey, keyword, middleClassCode, smallClassName };
+    const fetchParams = { appId, accessKey, keyword, middleClassCode, smallClassCode };
 
     try {
         // === パス1: 通常検索（ソートなし）===

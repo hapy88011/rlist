@@ -1,5 +1,7 @@
 // Vercel Serverless Function: 楽天トラベルAPI プロキシ
 // CORS制限を回避するためのプロキシサーバー
+// キーワード検索 → KeywordHotelSearch
+// エリアコード検索 → SimpleHotelSearch（smallClassCode対応）
 
 export default async function handler(req, res) {
     // CORS ヘッダー（全レスポンスに適用）
@@ -17,13 +19,10 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassName, sort } = req.query;
+    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode, sort } = req.query;
 
     if (!applicationId || !accessKey) {
         return res.status(400).json({ error: 'applicationId and accessKey are required' });
-    }
-    if (!keyword && !middleClassCode) {
-        return res.status(400).json({ error: 'keyword or middleClassCode is required' });
     }
 
     try {
@@ -36,29 +35,39 @@ export default async function handler(req, res) {
             format: 'json',
         });
 
-        // キーワード構築: ユーザー入力キーワード + 小エリア名
-        let effectiveKeyword = keyword || '';
-        if (smallClassName) {
-            effectiveKeyword = effectiveKeyword ? `${effectiveKeyword} ${smallClassName}` : smallClassName;
-        }
-        if (!effectiveKeyword && middleClassCode) {
-            effectiveKeyword = 'ホテル';
-        }
-        if (effectiveKeyword) {
-            params.set('keyword', effectiveKeyword);
-        }
-
-        // エリアコードがあれば追加
-        if (middleClassCode) {
-            params.set('middleClassCode', middleClassCode);
-        }
-
         // ソート順があれば追加
         if (sort) {
             params.set('sort', sort);
         }
 
-        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/KeywordHotelSearch/20170426?${params.toString()}`;
+        let apiPath;
+
+        // キーワードがある場合 → KeywordHotelSearch を使用
+        if (keyword) {
+            apiPath = 'Travel/KeywordHotelSearch/20170426';
+            params.set('keyword', keyword);
+
+            // middleClassCodeがあれば追加（KeywordHotelSearchはmiddleClassCodeのみ対応）
+            if (middleClassCode) {
+                params.set('middleClassCode', middleClassCode);
+            }
+        }
+        // エリアコードのみ → SimpleHotelSearch を使用（smallClassCode対応）
+        else if (middleClassCode) {
+            apiPath = 'Travel/SimpleHotelSearch/20170426';
+            params.set('largeClassCode', 'japan');
+            params.set('middleClassCode', middleClassCode);
+
+            if (smallClassCode) {
+                params.set('smallClassCode', smallClassCode);
+            }
+        }
+        // どちらもない場合はエラー
+        else {
+            return res.status(400).json({ error: 'keyword or middleClassCode is required' });
+        }
+
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/${apiPath}?${params.toString()}`;
 
         console.log('API URL:', apiUrl);
 
