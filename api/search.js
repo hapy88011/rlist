@@ -1,7 +1,9 @@
 // Vercel Serverless Function: 楽天トラベルAPI プロキシ
 // CORS制限を回避するためのプロキシサーバー
-// キーワード検索 → KeywordHotelSearch
-// エリアコード検索 → SimpleHotelSearch（smallClassCode対応）
+// apiType パラメータで使用するAPIを切り替え:
+//   'keyword' → KeywordHotelSearch
+//   'simple'  → SimpleHotelSearch（smallClassCode対応）
+//   未指定時: keyword があれば KeywordHotelSearch、なければ SimpleHotelSearch
 
 export default async function handler(req, res) {
     // CORS ヘッダー（全レスポンスに適用）
@@ -19,7 +21,7 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode, sort } = req.query;
+    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode, smallClassName, sort, apiType } = req.query;
 
     if (!applicationId || !accessKey) {
         return res.status(400).json({ error: 'applicationId and accessKey are required' });
@@ -42,18 +44,12 @@ export default async function handler(req, res) {
 
         let apiPath;
 
-        // キーワードがある場合 → KeywordHotelSearch を使用
-        if (keyword) {
-            apiPath = 'Travel/KeywordHotelSearch/20170426';
-            params.set('keyword', keyword);
+        // APIタイプ判定
+        const useSimple = apiType === 'simple' || (!apiType && !keyword && middleClassCode);
+        const useKeyword = apiType === 'keyword' || (!apiType && keyword);
 
-            // middleClassCodeがあれば追加（KeywordHotelSearchはmiddleClassCodeのみ対応）
-            if (middleClassCode) {
-                params.set('middleClassCode', middleClassCode);
-            }
-        }
-        // エリアコードのみ → SimpleHotelSearch を使用（smallClassCode対応）
-        else if (middleClassCode) {
+        if (useSimple && middleClassCode) {
+            // SimpleHotelSearch: エリアコードで正確な検索
             apiPath = 'Travel/SimpleHotelSearch/20170426';
             params.set('largeClassCode', 'japan');
             params.set('middleClassCode', middleClassCode);
@@ -61,9 +57,26 @@ export default async function handler(req, res) {
             if (smallClassCode) {
                 params.set('smallClassCode', smallClassCode);
             }
-        }
-        // どちらもない場合はエラー
-        else {
+        } else if (useKeyword || keyword) {
+            // KeywordHotelSearch: キーワードでテキスト検索
+            apiPath = 'Travel/KeywordHotelSearch/20170426';
+
+            // キーワード構築: ユーザー入力キーワード + 小エリア名
+            let effectiveKeyword = keyword || '';
+            if (smallClassName) {
+                effectiveKeyword = effectiveKeyword ? `${effectiveKeyword} ${smallClassName}` : smallClassName;
+            }
+            if (!effectiveKeyword && middleClassCode) {
+                effectiveKeyword = 'ホテル';
+            }
+            if (effectiveKeyword) {
+                params.set('keyword', effectiveKeyword);
+            }
+
+            if (middleClassCode) {
+                params.set('middleClassCode', middleClassCode);
+            }
+        } else {
             return res.status(400).json({ error: 'keyword or middleClassCode is required' });
         }
 
