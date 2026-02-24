@@ -269,7 +269,7 @@ async function searchHotels() {
     const smallClassOption = elements.smallClass.options[elements.smallClass.selectedIndex];
     const smallClassName = (smallClassCode && smallClassOption) ? smallClassOption.textContent : '';
     const hitsValue = elements.hits.value;
-    const totalWanted = hitsValue === 'all' ? 3000 : parseInt(hitsValue);
+    let totalWanted = hitsValue === 'all' ? 3000 : parseInt(hitsValue);
 
     // バリデーション
     if (!appId || !accessKey) {
@@ -363,6 +363,18 @@ async function searchHotels() {
             // ページ情報を取得
             if (page === 1) {
                 totalAvailable = data.pagingInfo ? data.pagingInfo.recordCount : data.hotels.length;
+
+                // 「全件」オプションのテキストを実際の件数に更新
+                const allOption = elements.hits.querySelector('option[value="all"]');
+                if (allOption) {
+                    allOption.textContent = `全件（${totalAvailable.toLocaleString()}件）`;
+                }
+
+                // 全件取得の場合、実際の件数に合わせる
+                if (hitsValue === 'all') {
+                    totalWanted = Math.min(totalAvailable, 3000);
+                    currentHits = totalWanted;
+                }
             }
 
             // ホテルデータを解析して追加
