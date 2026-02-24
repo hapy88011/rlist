@@ -1,27 +1,19 @@
 // Vercel Serverless Function: 楽天トラベルAPI プロキシ
-// CORS制限を回避するためのプロキシサーバー
-// apiType パラメータで使用するAPIを切り替え:
-//   'keyword' → KeywordHotelSearch
-//   'simple'  → SimpleHotelSearch（smallClassCode対応）
-//   未指定時: keyword があれば KeywordHotelSearch、なければ SimpleHotelSearch
+// キーワード検索 → KeywordHotelSearch
+// エリアコード検索 → SimpleHotelSearch（smallClassCode対応）
+// デバッグ用: レスポンスにページング情報をログ
 
 export default async function handler(req, res) {
-    // CORS ヘッダー（全レスポンスに適用）
+    // CORS ヘッダー
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 
-    // OPTIONSプリフライトリクエストの処理
-    if (req.method === 'OPTIONS') {
-        return res.status(200).end();
-    }
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-    if (req.method !== 'GET') {
-        return res.status(405).json({ error: 'Method not allowed' });
-    }
-
-    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode, smallClassName, sort, apiType } = req.query;
+    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode, sort } = req.query;
 
     if (!applicationId || !accessKey) {
         return res.status(400).json({ error: 'applicationId and accessKey are required' });
@@ -29,60 +21,35 @@ export default async function handler(req, res) {
 
     try {
         const params = new URLSearchParams({
-            applicationId: applicationId,
-            accessKey: accessKey,
+            applicationId,
+            accessKey,
             hits: hits || '30',
             page: page || '1',
             formatVersion: '2',
             format: 'json',
         });
 
-        // ソート順があれば追加
-        if (sort) {
-            params.set('sort', sort);
-        }
+        if (sort) params.set('sort', sort);
 
         let apiPath;
 
-        // APIタイプ判定
-        const useSimple = apiType === 'simple' || (!apiType && !keyword && middleClassCode);
-        const useKeyword = apiType === 'keyword' || (!apiType && keyword);
-
-        if (useSimple && middleClassCode) {
-            // SimpleHotelSearch: エリアコードで正確な検索
+        if (keyword) {
+            // キーワード検索 → KeywordHotelSearch
+            apiPath = 'Travel/KeywordHotelSearch/20170426';
+            params.set('keyword', keyword);
+            if (middleClassCode) params.set('middleClassCode', middleClassCode);
+        } else if (middleClassCode) {
+            // エリアコード検索 → SimpleHotelSearch
             apiPath = 'Travel/SimpleHotelSearch/20170426';
             params.set('largeClassCode', 'japan');
             params.set('middleClassCode', middleClassCode);
-
-            if (smallClassCode) {
-                params.set('smallClassCode', smallClassCode);
-            }
-        } else if (useKeyword || keyword) {
-            // KeywordHotelSearch: キーワードでテキスト検索
-            apiPath = 'Travel/KeywordHotelSearch/20170426';
-
-            // キーワード構築: ユーザー入力キーワード + 小エリア名
-            let effectiveKeyword = keyword || '';
-            if (smallClassName) {
-                effectiveKeyword = effectiveKeyword ? `${effectiveKeyword} ${smallClassName}` : smallClassName;
-            }
-            if (!effectiveKeyword && middleClassCode) {
-                effectiveKeyword = 'ホテル';
-            }
-            if (effectiveKeyword) {
-                params.set('keyword', effectiveKeyword);
-            }
-
-            if (middleClassCode) {
-                params.set('middleClassCode', middleClassCode);
-            }
+            if (smallClassCode) params.set('smallClassCode', smallClassCode);
         } else {
             return res.status(400).json({ error: 'keyword or middleClassCode is required' });
         }
 
         const apiUrl = `https://openapi.rakuten.co.jp/engine/api/${apiPath}?${params.toString()}`;
-
-        console.log('API URL:', apiUrl);
+        console.log(`[RLIST] API=${apiPath} page=${page} hits=${hits}`);
 
         const response = await fetch(apiUrl, {
             headers: {
@@ -93,13 +60,22 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
+
+        // デバッグ: ページング情報をログ
+        if (data.pagingInfo) {
+            console.log(`[RLIST] pagingInfo: recordCount=${data.pagingInfo.recordCount}, pageCount=${data.pagingInfo.pageCount}, page=${data.pagingInfo.page}, first=${data.pagingInfo.first}, last=${data.pagingInfo.last}`);
+        }
+        if (data.hotels) {
+            console.log(`[RLIST] hotels.length=${data.hotels.length}`);
+        }
+        if (data.error) {
+            console.log(`[RLIST] ERROR: ${data.error} - ${data.error_description}`);
+        }
+
         return res.status(200).json(data);
 
     } catch (error) {
-        console.error('API Proxy Error:', error);
-        return res.status(500).json({
-            error: 'API request failed',
-            error_description: error.message,
-        });
+        console.error('[RLIST] Proxy Error:', error);
+        return res.status(500).json({ error: 'API request failed', error_description: error.message });
     }
 }
