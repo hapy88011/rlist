@@ -257,6 +257,76 @@ function onMiddleClassChange() {
 
 // ===== ホテル検索 =====
 
+/** 指定条件で複数ページのホテルデータを取得するヘルパー関数 */
+async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallClassName, sort, maxResults, progressPrefix }) {
+    const PER_PAGE = 30;
+    const MAX_API_RESULTS = 3000; // API制限: 100ページ × 30件
+    const limit = Math.min(maxResults, MAX_API_RESULTS);
+    const pagesNeeded = Math.ceil(limit / PER_PAGE);
+    let hotels = [];
+    let totalAvailable = 0;
+
+    for (let page = 1; page <= pagesNeeded; page++) {
+        // レート制限
+        const now = Date.now();
+        const elapsed = now - lastRequestTime;
+        if (elapsed < RATE_LIMIT_MS) {
+            await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS - elapsed));
+        }
+        lastRequestTime = Date.now();
+
+        // 進捗表示
+        const prefix = progressPrefix || '検索中';
+        elements.loading.querySelector('p').textContent =
+            `${prefix}... (${page}/${pagesNeeded}ページ, ${hotels.length}件取得済み)`;
+
+        const params = new URLSearchParams({
+            applicationId: appId,
+            accessKey: accessKey,
+            hits: PER_PAGE,
+            page: page,
+        });
+
+        if (keyword) params.set('keyword', keyword);
+        if (middleClassCode) params.set('middleClassCode', middleClassCode);
+        if (smallClassName) params.set('smallClassName', smallClassName);
+        if (sort) params.set('sort', sort);
+
+        const response = await fetch(`/api/search?${params.toString()}`);
+        const data = await response.json();
+
+        // エラーチェック
+        if (data.error) throw new Error(getErrorMessage(data));
+        if (data.errors) throw new Error(data.errors.errorMessage || JSON.stringify(data.errors));
+
+        // データがない場合
+        if (!data.hotels || data.hotels.length === 0) {
+            if (page === 1) return { hotels: [], totalAvailable: 0 };
+            break;
+        }
+
+        // ページ情報を取得
+        if (page === 1) {
+            totalAvailable = data.pagingInfo ? data.pagingInfo.recordCount : data.hotels.length;
+        }
+
+        const parsed = parseHotels(data.hotels);
+        hotels = hotels.concat(parsed);
+
+        // 必要数に達したら終了
+        if (hotels.length >= limit) {
+            hotels = hotels.slice(0, limit);
+            break;
+        }
+
+        // これ以上ページがない場合は終了
+        const maxPages = data.pagingInfo ? data.pagingInfo.pageCount : 1;
+        if (page >= maxPages) break;
+    }
+
+    return { hotels, totalAvailable };
+}
+
 /** 楽天トラベルAPIでホテルを検索 */
 async function searchHotels() {
     const appId = elements.appId.value.trim() || localStorage.getItem(STORAGE_KEY_APPID);
@@ -264,12 +334,10 @@ async function searchHotels() {
     const keyword = elements.keyword.value.trim();
     const middleClassCode = elements.middleClass.value;
     const smallClassCode = elements.smallClass.value;
-    // KeywordHotelSearchはsmallClassCodeに対応していないため、
-    // 小エリアの名前をキーワードに含めて絞り込む
     const smallClassOption = elements.smallClass.options[elements.smallClass.selectedIndex];
     const smallClassName = (smallClassCode && smallClassOption) ? smallClassOption.textContent : '';
     const hitsValue = elements.hits.value;
-    let totalWanted = hitsValue === 'all' ? 3000 : parseInt(hitsValue);
+    let totalWanted = hitsValue === 'all' ? Infinity : parseInt(hitsValue);
 
     // バリデーション
     if (!appId || !accessKey) {
@@ -295,101 +363,63 @@ async function searchHotels() {
     hideError();
     elements.resultsSection.style.display = 'none';
 
+    const fetchParams = { appId, accessKey, keyword, middleClassCode, smallClassName };
+
     try {
-        // APIは1回最大30件なので、複数ページを取得
-        const PER_PAGE = 30;
-        const pagesNeeded = Math.ceil(totalWanted / PER_PAGE);
-        let allHotels = [];
-        let totalAvailable = 0;
+        // === パス1: 通常検索（ソートなし）===
+        const pass1 = await fetchPages({
+            ...fetchParams,
+            sort: null,
+            maxResults: Math.min(totalWanted, 3000),
+            progressPrefix: '検索中',
+        });
 
-        for (let page = 1; page <= pagesNeeded; page++) {
-            // レート制限: 前回リクエストから1.1秒未満なら待機
-            const now = Date.now();
-            const elapsed = now - lastRequestTime;
-            if (elapsed < RATE_LIMIT_MS) {
-                await new Promise(resolve => setTimeout(resolve, RATE_LIMIT_MS - elapsed));
-            }
-            lastRequestTime = Date.now();
+        if (pass1.hotels.length === 0) {
+            showError('該当するホテルが見つかりませんでした。');
+            showLoading(false);
+            return;
+        }
 
-            // 進捗表示
-            if (pagesNeeded > 1) {
-                elements.loading.querySelector('p').textContent =
-                    `検索中... (${page}/${pagesNeeded}ページ, ${allHotels.length}件取得済み)`;
-            }
+        const totalAvailable = pass1.totalAvailable;
 
-            const params = new URLSearchParams({
-                applicationId: appId,
-                accessKey: accessKey,
-                hits: PER_PAGE,
-                page: page,
+        // 「全件」オプションのテキストを実際の件数に更新
+        const allOption = elements.hits.querySelector('option[value="all"]');
+        if (allOption) {
+            allOption.textContent = `全件（${totalAvailable.toLocaleString()}件）`;
+        }
+
+        // 全件取得の場合、実際の件数に合わせる
+        if (hitsValue === 'all') {
+            totalWanted = totalAvailable;
+            currentHits = totalWanted;
+        }
+
+        let allHotels = pass1.hotels;
+
+        // === パス2: 3000件を超える場合、逆順ソートで残りを取得 ===
+        if (totalAvailable > 3000 && totalWanted > 3000) {
+            elements.loading.querySelector('p').textContent =
+                `3000件以上検出（${totalAvailable.toLocaleString()}件）。追加取得を開始します...`;
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            const pass2 = await fetchPages({
+                ...fetchParams,
+                sort: '-roomCharge',  // 料金の高い順（パス1と逆方向）
+                maxResults: 3000,
+                progressPrefix: '追加取得中（料金高い順）',
             });
 
-            // キーワードがあれば追加
-            if (keyword) {
-                params.set('keyword', keyword);
-            }
+            // hotelNoで重複排除して結合
+            const existingIds = new Set(allHotels.map(h => h.hotelNo));
+            const newHotels = pass2.hotels.filter(h => !existingIds.has(h.hotelNo));
+            allHotels = allHotels.concat(newHotels);
 
-            // エリアコードがあれば追加
-            if (middleClassCode) {
-                params.set('middleClassCode', middleClassCode);
-            }
+            console.log(`2パス取得完了: パス1=${pass1.hotels.length}件, パス2=${pass2.hotels.length}件, 新規=${newHotels.length}件, 合計=${allHotels.length}件`);
+        }
 
-            // 小エリア名があれば追加（キーワード絞り込み用）
-            if (smallClassName) {
-                params.set('smallClassName', smallClassName);
-            }
-
-            const response = await fetch(`/api/search?${params.toString()}`);
-            const data = await response.json();
-
-            // エラーチェック
-            if (data.error) {
-                throw new Error(getErrorMessage(data));
-            }
-            if (data.errors) {
-                throw new Error(data.errors.errorMessage || JSON.stringify(data.errors));
-            }
-
-            // データがない場合は終了
-            if (!data.hotels || data.hotels.length === 0) {
-                if (page === 1) {
-                    showError('該当するホテルが見つかりませんでした。');
-                    showLoading(false);
-                    return;
-                }
-                break; // 2ページ目以降でデータなし → 取得完了
-            }
-
-            // ページ情報を取得
-            if (page === 1) {
-                totalAvailable = data.pagingInfo ? data.pagingInfo.recordCount : data.hotels.length;
-
-                // 「全件」オプションのテキストを実際の件数に更新
-                const allOption = elements.hits.querySelector('option[value="all"]');
-                if (allOption) {
-                    allOption.textContent = `全件（${totalAvailable.toLocaleString()}件）`;
-                }
-
-                // 全件取得の場合、実際の件数に合わせる
-                if (hitsValue === 'all') {
-                    totalWanted = Math.min(totalAvailable, 3000);
-                    currentHits = totalWanted;
-                }
-            }
-
-            // ホテルデータを解析して追加
-            const parsed = parseHotels(data.hotels);
-            allHotels = allHotels.concat(parsed);
-
-            // 必要数に達したら終了
-            if (allHotels.length >= totalWanted) {
-                allHotels = allHotels.slice(0, totalWanted);
-                break;
-            }
-
-            // これ以上ページがない場合は終了
-            const maxPages = data.pagingInfo ? data.pagingInfo.pageCount : 1;
-            if (page >= maxPages) break;
+        // 要求数を超えた場合はトリム
+        if (allHotels.length > totalWanted) {
+            allHotels = allHotels.slice(0, totalWanted);
         }
 
         // 検索結果を保存して表示
