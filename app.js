@@ -583,7 +583,7 @@ function updatePagination() {
 // ===== CSV出力 =====
 
 /** 検索結果をCSVファイルとしてダウンロード */
-function downloadCSV() {
+async function downloadCSV() {
     if (currentResults.length === 0) {
         showError('ダウンロードするデータがありません。先に検索を行ってください。');
         return;
@@ -611,17 +611,44 @@ function downloadCSV() {
         .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
         .join('\n');
 
-    // BOM付きUTF-8でダウンロード（Excelで文字化けしないように）
+    // BOM付きUTF-8（Excelで文字化けしないように）
     const bom = '\uFEFF';
     const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
 
-    // ファイル名: RLIST_キーワード_日時.csv
+    // ファイル名: RLIST_検索条件_日時.csv
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}_${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}`;
-    const filename = `RLIST_${currentKeyword}_${dateStr}.csv`;
+    // エリア検索の場合はエリア名を使用
+    const searchLabel = currentKeyword
+        || (elements.smallClass.options[elements.smallClass.selectedIndex]?.textContent)
+        || (elements.middleClass.options[elements.middleClass.selectedIndex]?.textContent)
+        || '検索結果';
+    const filename = `RLIST_${searchLabel}_${dateStr}.csv`;
 
-    // ダウンロードリンクを作成してクリック
+    // File System Access API（保存先選択ダイアログ）を試行
+    if (window.showSaveFilePicker) {
+        try {
+            const handle = await window.showSaveFilePicker({
+                suggestedName: filename,
+                types: [{
+                    description: 'CSV ファイル',
+                    accept: { 'text/csv': ['.csv'] },
+                }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(blob);
+            await writable.close();
+            return;
+        } catch (err) {
+            // ユーザーがキャンセルした場合は何もしない
+            if (err.name === 'AbortError') return;
+            // その他のエラーはフォールバック
+            console.warn('showSaveFilePicker failed, falling back:', err);
+        }
+    }
+
+    // フォールバック: 従来のダウンロード方式
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
