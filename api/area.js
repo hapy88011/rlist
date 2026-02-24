@@ -2,8 +2,16 @@
 // エリアコードを取得するためのプロキシ
 
 export default async function handler(req, res) {
+    // CORS ヘッダー（全レスポンスに適用）
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+
+    // OPTIONSプリフライトリクエストの処理
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
 
     if (req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
@@ -16,14 +24,13 @@ export default async function handler(req, res) {
     }
 
     try {
-        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20131024?applicationId=${applicationId}&format=json&formatVersion=2`;
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/Travel/GetAreaClass/20140210?applicationId=${applicationId}&accessKey=${accessKey}&format=json&formatVersion=2`;
 
         const response = await fetch(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${accessKey}`,
-                'Referer': 'https://rlist-seven.vercel.app',
+                'Referer': 'https://rlist-seven.vercel.app/',
                 'Origin': 'https://rlist-seven.vercel.app',
-                'User-Agent': req.headers['user-agent'] || 'RLIST/1.0',
             },
         });
 
