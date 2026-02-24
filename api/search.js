@@ -29,6 +29,7 @@ export default async function handler(req, res) {
     try {
         const params = new URLSearchParams({
             applicationId: applicationId,
+            accessKey: accessKey,
             hits: hits || '30',
             page: page || '1',
             formatVersion: '2',
