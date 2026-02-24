@@ -320,7 +320,11 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
         }
 
         // これ以上ページがない場合は終了
-        const maxPages = data.pagingInfo ? data.pagingInfo.pageCount : 1;
+        // ※ SimpleHotelSearch の pageCount が不正確な場合があるため、
+        //   recordCount から計算した値も使ってフォールバック
+        const apiPageCount = data.pagingInfo ? data.pagingInfo.pageCount : 1;
+        const calculatedPageCount = totalAvailable > 0 ? Math.ceil(totalAvailable / PER_PAGE) : apiPageCount;
+        const maxPages = Math.max(apiPageCount, calculatedPageCount);
         if (page >= maxPages) break;
     }
 
