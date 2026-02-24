@@ -60,6 +60,8 @@ export default async function handler(req, res) {
         const response = await fetch(apiUrl, {
             headers: {
                 'Authorization': `Bearer ${accessKey}`,
+                'Referer': 'https://rlist-seven.vercel.app/',
+                'Origin': 'https://rlist-seven.vercel.app',
             },
         });
 
