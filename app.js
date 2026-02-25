@@ -223,13 +223,21 @@ async function loadAreaData() {
             const response = await fetch(`/api/areas?${params.toString()}`);
             const data = await response.json();
 
+            console.log('[RLIST] GetAreaClass RAW response keys:', Object.keys(data));
+            console.log('[RLIST] GetAreaClass RAW response (first 2000 chars):', JSON.stringify(data).slice(0, 2000));
+
             if (data.error) throw new Error(data.error_description || data.error);
 
             // APIレスポンスをパース
             const parsed = parseAreaClassResponse(data);
+            console.log(`[RLIST] parseAreaClassResponse result: ${parsed.length}件`);
             if (parsed.length > 0) {
+                // 静岡のデータを確認
+                const shizuoka = parsed.find(m => m.code === 'shizuoka');
+                if (shizuoka) {
+                    console.log(`[RLIST] 静岡の小エリア: ${shizuoka.smallClasses.length}件`, shizuoka.smallClasses.map(s => s.name));
+                }
                 areaData = parsed;
-                console.log(`[RLIST] GetAreaClass: ${parsed.length}都道府県のエリアデータを取得`);
                 populateMiddleClassDropdown();
                 return;
             }
@@ -253,17 +261,42 @@ function parseAreaClassResponse(data) {
     const result = [];
 
     try {
-        // APIレスポンス構造: { areaClasses: { largeClasses: [...] } }
+        // APIレスポンス構造を動的に探索
+        // formatVersion=2: { areaClasses: { largeClasses: [...] } }
+        // formatVersion=1: { areaClasses: { largeClasses: [{ largeClass: [...] }] } }
         const largeClasses = data.areaClasses?.largeClasses || [];
+        console.log(`[RLIST] largeClasses count: ${largeClasses.length}`);
+        if (largeClasses.length > 0) {
+            console.log('[RLIST] First largeClass keys:', Object.keys(largeClasses[0]));
+            console.log('[RLIST] First largeClass (2000 chars):', JSON.stringify(largeClasses[0]).slice(0, 2000));
+        }
 
         for (const large of largeClasses) {
-            // largeClass = { largeClassCode, largeClassName } (例: japan)
+            // largeClassの情報を取得（配列かオブジェクトか不明）
+            const largeInfo = Array.isArray(large.largeClass) ? large.largeClass[0] : large.largeClass;
+            console.log('[RLIST] largeClass info:', largeInfo);
+
             const middleClasses = large.middleClasses || [];
+            console.log(`[RLIST] middleClasses count for this large: ${middleClasses.length}`);
 
             for (const middle of middleClasses) {
-                const middleInfo = middle.middleClass?.[0] || middle.middleClass || {};
-                const middleCode = middleInfo.middleClassCode;
-                const middleName = middleInfo.middleClassName;
+                // middleClassの情報を取得
+                const middleRaw = middle.middleClass;
+                let middleCode, middleName;
+
+                if (Array.isArray(middleRaw)) {
+                    middleCode = middleRaw[0]?.middleClassCode;
+                    middleName = middleRaw[0]?.middleClassName;
+                } else if (middleRaw) {
+                    middleCode = middleRaw.middleClassCode;
+                    middleName = middleRaw.middleClassName;
+                }
+
+                // middleClassが直接のプロパティかもしれない
+                if (!middleCode) {
+                    middleCode = middle.middleClassCode;
+                    middleName = middle.middleClassName;
+                }
 
                 if (!middleCode || !middleName) continue;
 
@@ -271,9 +304,22 @@ function parseAreaClassResponse(data) {
                 const smalls = middle.smallClasses || [];
 
                 for (const small of smalls) {
-                    const smallInfo = small.smallClass?.[0] || small.smallClass || {};
-                    const smallCode = smallInfo.smallClassCode;
-                    const smallName = smallInfo.smallClassName;
+                    const smallRaw = small.smallClass;
+                    let smallCode, smallName;
+
+                    if (Array.isArray(smallRaw)) {
+                        smallCode = smallRaw[0]?.smallClassCode;
+                        smallName = smallRaw[0]?.smallClassName;
+                    } else if (smallRaw) {
+                        smallCode = smallRaw.smallClassCode;
+                        smallName = smallRaw.smallClassName;
+                    }
+
+                    // 直接プロパティかもしれない
+                    if (!smallCode) {
+                        smallCode = small.smallClassCode;
+                        smallName = small.smallClassName;
+                    }
 
                     if (smallCode && smallName) {
                         smallClasses.push({ code: smallCode, name: smallName });
