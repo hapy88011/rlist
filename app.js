@@ -154,7 +154,7 @@ function loadApiKey() {
 }
 
 /** APIキーを保存する */
-function saveApiKey() {
+async function saveApiKey() {
     const appId = elements.appId.value.trim();
     const accessKey = elements.accessKey.value.trim();
     if (!appId || !accessKey) {
@@ -163,6 +163,10 @@ function saveApiKey() {
     }
     localStorage.setItem(STORAGE_KEY_APPID, appId);
     localStorage.setItem(STORAGE_KEY_ACCESS, accessKey);
+    showApiStatus('✅ 保存しました！エリアデータを更新中...', 'success');
+
+    // APIキー保存後にエリアデータを動的に取得
+    await loadAreaData();
     showApiStatus('✅ 保存しました！', 'success');
 
     // 少し遅れて折りたたむ
@@ -206,14 +210,88 @@ function showApiStatus(message, type) {
 // ===== エリアデータ管理 =====
 
 /** エリアデータを読み込む（静的データを使用） */
-function loadAreaData() {
-    // area-data.js で定義された AREA_DATA を使用
+async function loadAreaData() {
+    // API設定を取得
+    const appId = localStorage.getItem(STORAGE_KEY_APPID);
+    const accessKey = localStorage.getItem(STORAGE_KEY_ACCESS);
+
+    // APIキーがある場合は動的に取得を試行
+    if (appId && accessKey) {
+        try {
+            console.log('[RLIST] GetAreaClass APIからエリアデータを取得中...');
+            const params = new URLSearchParams({ applicationId: appId, accessKey });
+            const response = await fetch(`/api/areas?${params.toString()}`);
+            const data = await response.json();
+
+            if (data.error) throw new Error(data.error_description || data.error);
+
+            // APIレスポンスをパース
+            const parsed = parseAreaClassResponse(data);
+            if (parsed.length > 0) {
+                areaData = parsed;
+                console.log(`[RLIST] GetAreaClass: ${parsed.length}都道府県のエリアデータを取得`);
+                populateMiddleClassDropdown();
+                return;
+            }
+        } catch (err) {
+            console.warn('[RLIST] GetAreaClass API失敗、フォールバックを使用:', err.message);
+        }
+    }
+
+    // フォールバック: 静的データを使用
     if (typeof AREA_DATA !== 'undefined' && AREA_DATA.length > 0) {
         areaData = AREA_DATA;
+        console.log('[RLIST] 静的エリアデータを使用（area-data.js）');
         populateMiddleClassDropdown();
     } else {
-        console.error('AREA_DATA is not defined. area-data.js が正しく読み込まれていません。');
+        console.error('エリアデータを取得できませんでした。');
     }
+}
+
+/** GetAreaClass APIレスポンスをパースしてドロップダウン用データに変換 */
+function parseAreaClassResponse(data) {
+    const result = [];
+
+    try {
+        // APIレスポンス構造: { areaClasses: { largeClasses: [...] } }
+        const largeClasses = data.areaClasses?.largeClasses || [];
+
+        for (const large of largeClasses) {
+            // largeClass = { largeClassCode, largeClassName } (例: japan)
+            const middleClasses = large.middleClasses || [];
+
+            for (const middle of middleClasses) {
+                const middleInfo = middle.middleClass?.[0] || middle.middleClass || {};
+                const middleCode = middleInfo.middleClassCode;
+                const middleName = middleInfo.middleClassName;
+
+                if (!middleCode || !middleName) continue;
+
+                const smallClasses = [];
+                const smalls = middle.smallClasses || [];
+
+                for (const small of smalls) {
+                    const smallInfo = small.smallClass?.[0] || small.smallClass || {};
+                    const smallCode = smallInfo.smallClassCode;
+                    const smallName = smallInfo.smallClassName;
+
+                    if (smallCode && smallName) {
+                        smallClasses.push({ code: smallCode, name: smallName });
+                    }
+                }
+
+                result.push({
+                    code: middleCode,
+                    name: middleName,
+                    smallClasses,
+                });
+            }
+        }
+    } catch (err) {
+        console.error('[RLIST] エリアデータのパースに失敗:', err);
+    }
+
+    return result;
 }
 
 /** 都道府県ドロップダウンを生成 */
