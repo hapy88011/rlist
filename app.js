@@ -430,10 +430,16 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
             errors: data.errors || null,
         });
 
-        // エラーチェック
+        // エラーチェック（リトライ付き）
         if (data.error) {
             console.error(`[fetchPages] page=${page} APIエラー:`, data.error, data.error_description);
-            // ページ6以降のエラーは無視して継続（ページ範囲外エラーの可能性）
+            // too_many_requests の場合はリトライ
+            if (data.error === 'too_many_requests' && page > 1) {
+                console.log(`[fetchPages] page=${page}: レート制限、3秒後にリトライ...`);
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                page--; // 同じページをリトライ
+                continue;
+            }
             if (page > 1) break;
             throw new Error(getErrorMessage(data));
         }
@@ -446,6 +452,9 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
         // データがない場合
         if (!data.hotels || data.hotels.length === 0) {
             console.log(`[fetchPages] page=${page}: データなし、終了`);
+            // デバッグ: レスポンス全体を表示
+            console.log(`[fetchPages] page=${page} RAW response keys:`, Object.keys(data));
+            console.log(`[fetchPages] page=${page} RAW response:`, JSON.stringify(data).slice(0, 1000));
             if (page === 1) return { hotels: [], totalAvailable: 0 };
             break;
         }
