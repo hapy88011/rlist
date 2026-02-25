@@ -392,6 +392,7 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
 
     console.log(`[fetchPages] 開始: limit=${limit}, pagesNeeded=${pagesNeeded}, keyword=${keyword || 'none'}, middleClassCode=${middleClassCode || 'none'}, smallClassCode=${smallClassCode || 'none'}, sort=${sort || 'none'}`);
 
+    let retryCount = 0;
     for (let page = 1; page <= pagesNeeded; page++) {
         // レート制限
         const now = Date.now();
@@ -427,19 +428,31 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
             hotelsCount: data.hotels ? data.hotels.length : 0,
             pagingInfo: data.pagingInfo || null,
             error: data.error || null,
-            errors: data.errors || null,
+            statusCode: data.statusCode || null,
         });
 
-        // エラーチェック（リトライ付き）
-        if (data.error) {
-            console.error(`[fetchPages] page=${page} APIエラー:`, data.error, data.error_description);
-            // too_many_requests の場合はリトライ
-            if (data.error === 'too_many_requests' && page > 1) {
-                console.log(`[fetchPages] page=${page}: レート制限、3秒後にリトライ...`);
-                await new Promise(resolve => setTimeout(resolve, 3000));
+        // レート制限チェック（statusCode:429 または error:'too_many_requests'）
+        const isRateLimited = data.statusCode === 429
+            || data.error === 'too_many_requests';
+        if (isRateLimited) {
+            retryCount = (retryCount || 0) + 1;
+            if (retryCount <= 3) {
+                const waitSec = Math.min(2 * retryCount, 6);
+                console.log(`[fetchPages] page=${page}: レート制限 (${retryCount}/3), ${waitSec}秒後にリトライ...`);
+                elements.loading.querySelector('p').textContent =
+                    `レート制限...${waitSec}秒待機中 (${hotels.length}件取得済み)`;
+                await new Promise(resolve => setTimeout(resolve, waitSec * 1000));
                 page--; // 同じページをリトライ
                 continue;
             }
+            console.error(`[fetchPages] page=${page}: リトライ上限到達、終了`);
+            break;
+        }
+        retryCount = 0; // 成功したらリセット
+
+        // その他のエラーチェック
+        if (data.error) {
+            console.error(`[fetchPages] page=${page} APIエラー:`, data.error, data.error_description);
             if (page > 1) break;
             throw new Error(getErrorMessage(data));
         }
@@ -452,9 +465,6 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
         // データがない場合
         if (!data.hotels || data.hotels.length === 0) {
             console.log(`[fetchPages] page=${page}: データなし、終了`);
-            // デバッグ: レスポンス全体を表示
-            console.log(`[fetchPages] page=${page} RAW response keys:`, Object.keys(data));
-            console.log(`[fetchPages] page=${page} RAW response:`, JSON.stringify(data).slice(0, 1000));
             if (page === 1) return { hotels: [], totalAvailable: 0 };
             break;
         }
