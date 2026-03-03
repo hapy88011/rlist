@@ -1,7 +1,6 @@
 // Vercel Serverless Function: 楽天トラベルAPI プロキシ
 // キーワード検索 → KeywordHotelSearch
-// エリアコード検索 → SimpleHotelSearch（smallClassCode対応）
-// デバッグ用: レスポンスにページング情報をログ
+// エリアコード検索 → SimpleHotelSearch（smallClassCode/detailClassCode対応）
 
 export default async function handler(req, res) {
     // CORS ヘッダー
@@ -13,7 +12,7 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode, sort } = req.query;
+    const { keyword, hits, page, applicationId, accessKey, middleClassCode, smallClassCode, detailClassCode, sort } = req.query;
 
     if (!applicationId || !accessKey) {
         return res.status(400).json({ error: 'applicationId and accessKey are required' });
@@ -44,34 +43,23 @@ export default async function handler(req, res) {
             params.set('largeClassCode', 'japan');
             params.set('middleClassCode', middleClassCode);
             if (smallClassCode) params.set('smallClassCode', smallClassCode);
+            if (detailClassCode) params.set('detailClassCode', detailClassCode);
         } else {
             return res.status(400).json({ error: 'keyword or middleClassCode is required' });
         }
 
-        let apiUrl = `https://openapi.rakuten.co.jp/engine/api/${apiPath}?${params.toString()}`;
-        console.log(`[RLIST] API=${apiPath} page=${page} hits=${hits}`);
+        const apiUrl = `https://openapi.rakuten.co.jp/engine/api/${apiPath}?${params.toString()}`;
+        console.log(`[RLIST] API=${apiPath} page=${page} hits=${hits} detail=${detailClassCode || 'none'}`);
 
-        const fetchHeaders = {
-            'Authorization': `Bearer ${accessKey}`,
-            'Referer': 'https://rlist-seven.vercel.app/',
-            'Origin': 'https://rlist-seven.vercel.app',
-        };
+        const response = await fetch(apiUrl, {
+            headers: {
+                'Authorization': `Bearer ${accessKey}`,
+                'Referer': 'https://rlist-seven.vercel.app/',
+                'Origin': 'https://rlist-seven.vercel.app',
+            },
+        });
 
-        let response = await fetch(apiUrl, { headers: fetchHeaders });
-        let data = await response.json();
-
-        // detailClassCode エラーの場合、smallClassCode を外してリトライ
-        if (data.error === 'wrong_parameter' && data.error_description &&
-            data.error_description.includes('detailClassCode') && smallClassCode) {
-            console.log(`[RLIST] detailClassCode error detected, retrying without smallClassCode...`);
-            params.delete('smallClassCode');
-            apiUrl = `https://openapi.rakuten.co.jp/engine/api/${apiPath}?${params.toString()}`;
-            response = await fetch(apiUrl, { headers: fetchHeaders });
-            data = await response.json();
-            // フォールバックしたことをクライアントに通知
-            data._fallbackUsed = true;
-            data._originalSmallClassCode = smallClassCode;
-        }
+        const data = await response.json();
 
         // デバッグ: ページング情報をログ
         if (data.pagingInfo) {
