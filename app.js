@@ -422,6 +422,12 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
         const response = await fetch(`/api/search?${params.toString()}`);
         const data = await response.json();
 
+        // detailClassCodeフォールバック検出: 以降のページでsmallClassCodeを送らない
+        if (data._fallbackUsed && page === 1) {
+            console.log(`[fetchPages] detailClassCodeフォールバック検出: smallClassCode=${smallClassCode}を以降のリクエストから除外`);
+            smallClassCode = null;
+        }
+
         // デバッグ: レスポンス内容をログ
         console.log(`[fetchPages] page=${page}: `, {
             hasHotels: !!data.hotels,
@@ -429,6 +435,7 @@ async function fetchPages({ appId, accessKey, keyword, middleClassCode, smallCla
             pagingInfo: data.pagingInfo || null,
             error: data.error || null,
             statusCode: data.statusCode || null,
+            fallbackUsed: data._fallbackUsed || false,
         });
 
         // レート制限チェック（statusCode:429 または error:'too_many_requests'）
